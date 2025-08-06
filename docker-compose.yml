@@ -1,0 +1,82 @@
+services:
+  # PostgreSQL for User Service
+  postgres-user:
+    image: postgres:15
+    container_name: postgres_user
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${USER_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${USER_DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${USER_DB_NAME:-user_subscription_db}
+    ports:
+      - '5433:5432'
+    volumes:
+      - pgdata-user:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL for Payment Service
+  postgres-payment:
+    image: postgres:15
+    container_name: postgres_payment
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${PAYMENT_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${PAYMENT_DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${PAYMENT_DB_NAME:-payment_gateway_db}
+    ports:
+      - '5434:5432'
+    volumes:
+      - pgdata-payment:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # User Subscription Service
+  user-subscription-service:
+    build:
+      context: .
+      dockerfile: ${DOCKERFILE:-Dockerfile.dev}
+    container_name: user_subscription_service
+    restart: unless-stopped
+    depends_on:
+      postgres-user:
+        condition: service_healthy
+    env_file:
+      - .env.${NODE_ENV} 
+    ports:
+      - '3001:3000'
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: >
+      sh -c "npm run start:dev"
+
+  # Payment Gateway Service
+  payment-gateway-service:
+    build:
+      context: ./services/payment-gateway-service
+      dockerfile: ${DOCKERFILE:-Dockerfile.dev}
+    container_name: payment_gateway_service
+    restart: unless-stopped
+    depends_on:
+      postgres-payment:
+        condition: service_healthy
+    env_file:
+      - .env.${NODE_ENV} 
+    ports:
+      - '3002:3000'
+    volumes:
+      - ./services/payment-gateway-service:/app
+      - /app/node_modules
+    command: >
+      sh -c "npm run start:dev"
+
+volumes:
+  pgdata-user:
+  pgdata-payment:
