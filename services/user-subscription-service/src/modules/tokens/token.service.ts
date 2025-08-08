@@ -13,9 +13,10 @@ export class TokenService {
     const token = await this._databaseService.token.create({
       data: {
         reason: data.reason as TokenReason,
-        status: TokenStatus.ALIVE,
+        status: TokenStatus.ACTIVE,
         userId: data.userId,
         identifier: `${data.userId}-${Date.now()}`,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
       },
     });
     return token.identifier;

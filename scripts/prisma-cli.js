@@ -7,7 +7,7 @@ const inquirer = require('inquirer');
 function listService() {
     return [
         { service: 'user-subscription-service', container: 'user_subscription_service' },
-        { service: 'notification-service', container: 'notification_service' }
+        { service: 'payment-gateway-service', container: 'payment_gateway_service' },
     ];
 }
 

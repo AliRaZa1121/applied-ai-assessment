@@ -1,30 +1,32 @@
 import {
     ArgumentsHost,
     Catch,
-    RpcExceptionFilter
+    Logger,
+    RpcExceptionFilter,
 } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
 import { Observable, throwError } from 'rxjs';
-import { Logger } from 'src/helpers/logger.helper';
 
 @Catch()
 export class MicroserviceExceptionFilter implements RpcExceptionFilter {
+    private readonly logger = new Logger(MicroserviceExceptionFilter.name); // Create a new instance of the NestJS Logger
+
     catch(exception: unknown, host: ArgumentsHost): Observable<any> {
         let errorMessage: string;
-        
+
         if (exception instanceof RpcException) {
-            const error = exception.getError();
+            const error = (exception as RpcException).getError();
             errorMessage =
                 typeof error === 'string'
                     ? error
                     : JSON.stringify(error, null, 2);
         } else if (exception instanceof Error) {
-            errorMessage = exception.message;
+            errorMessage = (exception as Error).message;
         } else {
             errorMessage = 'Unknown microservice error occurred';
         }
 
-        Logger.Error(errorMessage, 'MicroserviceException');
+        this.logger.error(errorMessage);
 
         return throwError(() => new RpcException(errorMessage));
     }

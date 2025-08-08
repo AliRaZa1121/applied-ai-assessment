@@ -9,6 +9,8 @@ import { HttpExceptionFilter } from './core/exceptions/http.exception';
 import DatabaseModule from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TokenModule } from './modules/tokens/token.module';
+import SubscriptionModule from './modules/subscription/subscription.module';
+import PlanModule from './modules/plan/plan.module';
 
 @Module({
   imports: [
@@ -21,6 +23,8 @@ import { TokenModule } from './modules/tokens/token.module';
     DatabaseModule,
     AuthModule,
     TokenModule,
+    SubscriptionModule,
+    PlanModule,
     NotificationModule,
   ],
   controllers: [AppController],

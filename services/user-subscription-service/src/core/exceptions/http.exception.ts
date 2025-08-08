@@ -5,21 +5,22 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Logger
 } from '@nestjs/common';
 import { Response } from 'express';
-import { Logger } from 'src/helpers/logger.helper';
 import { ErrorApiWrapperInterface } from 'src/utilities/interfaces/response.interface';
 
 @Catch(HttpException, Error)
 export class HttpExceptionFilter implements ExceptionFilter {
-  constructor() {}
+  private readonly logger = new Logger(HttpExceptionFilter.name);
+  constructor() { }
 
   catch(exception: HttpException | Error, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response: any = ctx.getResponse<Response>();
 
     if (!(exception instanceof HttpException)) {
-      Logger.Error(exception.stack ? exception.stack : exception, 'ERROR');
+      this.logger.error(exception.stack || exception.message);
 
       let errorMessages = 'Something went wrong!';
 
@@ -76,7 +77,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         response.__ss_body = ResponseToSend;
         response.status(status).json(ResponseToSend);
       } else {
-        Logger.Fatal(exception.stack ? exception.stack : exception, 'ERROR');
+        this.logger.error(exception.stack || exception.message);
         const ResponseToSend: ErrorApiWrapperInterface = {
           message: [`Unprocessable Entity, Please contact support`],
           error: `Unprocessable Entity, Please contact support`,

@@ -4,7 +4,7 @@ import { ApiRouting } from 'src/core/decorators/api-controller.decorator';
 import {
   LoginResponseDto,
   RefreshTokenResponseDTO,
-} from 'src/utilities/swagger-responses/auth-response';
+} from 'src/modules/auth/dto/auth-response';
 import { BaseResponseDto } from 'src/utilities/swagger-responses/base-response';
 import AuthService from './auth.service';
 import { ForgetPasswordRequestDTO } from './dto/forget-password.dto';

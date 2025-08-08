@@ -8,16 +8,27 @@ generator client {
     binaryTargets = ["windows", "linux-musl-openssl-3.0.x", "native"]
 }
 
+// =====================================
+// USER MANAGEMENT
+// =====================================
+
 model User {
-    id        String   @id @default(uuid())
-    email     String   @unique
-    name      String
-    password  String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-    Token     Token[]
+    id            String         @id @default(uuid())
+    email         String         @unique
+    name          String
+    password      String
+    emailVerified Boolean        @default(false)
+    isActive      Boolean        @default(true)
+    createdAt     DateTime       @default(now())
+    updatedAt     DateTime       @updatedAt
+    
+    // Relations
+    tokens        Token[]
+    subscriptions Subscription[]
 
     @@map("users")
+    @@index([email])
+    @@index([isActive])
 }
 
 model Token {
@@ -25,20 +36,167 @@ model Token {
     identifier String      @unique
     reason     TokenReason
     status     TokenStatus
+    expiresAt  DateTime
     userId     String
-    user       User        @relation(fields: [userId], references: [id])
+    user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
     createdAt  DateTime    @default(now())
     updatedAt  DateTime    @updatedAt
+
+    @@map("tokens")
+    @@index([identifier])
+    @@index([userId])
+    @@index([status])
 }
 
 enum TokenReason {
     FORGOT_PASSWORD
     RESET_PASSWORD
-    VERIFICATION
+    EMAIL_VERIFICATION
     CHANGE_PASSWORD
 }
 
 enum TokenStatus {
     EXPIRED
-    ALIVE
+    ACTIVE
+    USED
+}
+
+// =====================================
+// SUBSCRIPTION MANAGEMENT
+// =====================================
+
+model Plan {
+    id              String         @id @default(uuid())
+    name            String         @unique
+    description     String?
+    price           Int            // Price in cents
+    currency        String         @default("USD")
+    billingInterval BillingInterval
+    trialDays       Int            @default(0)
+    features        Json?          // JSON array of features
+    isActive        Boolean        @default(true)
+    createdAt       DateTime       @default(now())
+    updatedAt       DateTime       @updatedAt
+    
+    // Relations
+    subscriptions   Subscription[]
+
+    @@map("plans")
+    @@index([isActive])
+    @@index([price])
+}
+
+model Subscription {
+    id                String             @id @default(uuid())
+    userId            String
+    planId            String
+    status            SubscriptionStatus @default(PENDING)
+    currentPeriodStart DateTime?
+    currentPeriodEnd   DateTime?
+    trialStart        DateTime?
+    trialEnd          DateTime?
+    cancelledAt       DateTime?
+    createdAt         DateTime          @default(now())
+    updatedAt         DateTime          @updatedAt
+    
+    // Relations
+    user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+    plan              Plan              @relation(fields: [planId], references: [id])
+    webhookEvents     WebhookEvent[]
+    billingHistory    BillingHistory[]
+
+    @@map("subscriptions")
+    @@index([userId])
+    @@index([planId])
+    @@index([status])
+    @@index([currentPeriodEnd])
+}
+
+model BillingHistory {
+    id             String          @id @default(uuid())
+    subscriptionId String
+    amount         Int             // Amount in cents
+    currency       String          @default("USD")
+    status         BillingStatus
+    paymentId      String?         // Payment ID from payment service
+    description    String?
+    billingDate    DateTime
+    createdAt      DateTime        @default(now())
+    updatedAt      DateTime        @updatedAt
+    
+    // Relations
+    subscription   Subscription    @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+    @@map("billing_history")
+    @@index([subscriptionId])
+    @@index([status])
+    @@index([billingDate])
+    @@index([paymentId])
+}
+
+// =====================================
+// WEBHOOK MANAGEMENT
+// =====================================
+
+model WebhookEvent {
+    id             String          @id @default(uuid())
+    subscriptionId String?
+    eventType      WebhookEventType
+    eventData      Json
+    processed      Boolean         @default(false)
+    processingError String?
+    retryCount     Int             @default(0)
+    createdAt      DateTime        @default(now())
+    updatedAt      DateTime        @updatedAt
+    
+    // Relations
+    subscription   Subscription?   @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+    @@map("webhook_events")
+    @@index([eventType])
+    @@index([processed])
+    @@index([subscriptionId])
+    @@index([createdAt])
+}
+
+// =====================================
+// ENUMS
+// =====================================
+
+enum BillingInterval {
+    MONTHLY
+    YEARLY
+    WEEKLY
+}
+
+enum SubscriptionStatus {
+    PENDING           // Waiting for first payment
+    ACTIVE            // Currently active and paid
+    PAST_DUE          // Payment failed, grace period
+    CANCELLED         // Cancelled by user
+    UNPAID            // Payment failed, access suspended
+    INCOMPLETE        // Initial payment incomplete
+    INCOMPLETE_EXPIRED // Initial payment expired
+    TRIALING          // In trial period
+    PAUSED            // Temporarily paused
+}
+
+enum BillingStatus {
+    PENDING
+    PAID
+    FAILED
+    REFUNDED
+    PARTIALLY_REFUNDED
+}
+
+enum WebhookEventType {
+    PAYMENT_SUCCEEDED
+    PAYMENT_FAILED
+    PAYMENT_REFUNDED
+    SUBSCRIPTION_CREATED
+    SUBSCRIPTION_UPDATED
+    SUBSCRIPTION_CANCELLED
+    INVOICE_CREATED
+    INVOICE_PAID
+    INVOICE_FAILED
 }

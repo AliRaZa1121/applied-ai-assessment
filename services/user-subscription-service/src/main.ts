@@ -1,7 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
-import InjectInterceptors from './core/injectables/logging';
 import InjectPipes from './core/injectables/pipes';
 import InjectSwagger from './core/injectables/swagger';
 
@@ -14,7 +13,6 @@ async function bootstrap() {
   });
 
   InjectPipes(app);
-  InjectInterceptors(app);
   InjectSwagger(app);
 
   await app.listen(3000);

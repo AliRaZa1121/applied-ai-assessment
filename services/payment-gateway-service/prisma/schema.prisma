@@ -4,26 +4,223 @@ datasource db {
 }
 
 generator client {
-    provider = "prisma-client-js"
+    provider      = "prisma-client-js"
+    binaryTargets = ["windows", "linux-musl-openssl-3.0.x", "native"]
+}
+
+// =====================================
+// PAYMENT PROCESSING
+// =====================================
+
+model PaymentIntent {
+    id             String              @id @default(uuid())
+    subscriptionId String // Reference to subscription in user service
+    userId         String // Reference to user in user service
+    amount         Int // Amount in cents
+    currency       String              @default("USD")
+    status         PaymentIntentStatus @default(PENDING)
+    paymentMethod  PaymentMethod       @default(CREDIT_CARD)
+    clientSecret   String?             @unique
+    description    String?
+    metadata       Json? // Additional metadata
+    failureReason  String?
+    failedAttempts Int                 @default(0)
+    lastAttemptAt  DateTime?
+    nextRetryAt    DateTime?
+    confirmedAt    DateTime?
+    createdAt      DateTime            @default(now())
+    updatedAt      DateTime            @updatedAt
+
+    // Relations
+    payments          Payment[]
+    webhookDeliveries WebhookDelivery[]
+
+    @@index([subscriptionId])
+    @@index([userId])
+    @@index([status])
+    @@index([createdAt])
+    @@index([clientSecret])
+    @@map("payment_intents")
+}
+
+model Payment {
+    id               String        @id @default(uuid())
+    paymentIntentId  String
+    amount           Int // Amount in cents
+    currency         String        @default("USD")
+    status           PaymentStatus @default(PENDING)
+    gatewayPaymentId String? // External payment gateway ID
+    gatewayChargeId  String? // External charge ID
+    gatewayResponse  Json? // Full gateway response
+    processingFee    Int? // Processing fee in cents
+    netAmount        Int? // Net amount after fees
+    refundAmount     Int           @default(0)
+    processedAt      DateTime?
+    createdAt        DateTime      @default(now())
+    updatedAt        DateTime      @updatedAt
+
+    // Relations
+    paymentIntent PaymentIntent @relation(fields: [paymentIntentId], references: [id], onDelete: Cascade)
+    refunds       Refund[]
+
+    @@index([paymentIntentId])
+    @@index([status])
+    @@index([gatewayPaymentId])
+    @@index([processedAt])
+    @@map("payments")
+}
+
+model Refund {
+    id              String        @id @default(uuid())
+    paymentId       String
+    amount          Int // Refund amount in cents
+    currency        String        @default("USD")
+    status          RefundStatus  @default(PENDING)
+    reason          RefundReason?
+    gatewayRefundId String? // External refund ID
+    gatewayResponse Json? // Full gateway response
+    processedAt     DateTime?
+    createdAt       DateTime      @default(now())
+    updatedAt       DateTime      @updatedAt
+
+    // Relations
+    payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+    @@index([paymentId])
+    @@index([status])
+    @@index([gatewayRefundId])
+    @@map("refunds")
+}
+
+// =====================================
+// WEBHOOK DELIVERY SYSTEM
+// =====================================
+
+model WebhookDelivery {
+    id               String                @id @default(uuid())
+    paymentIntentId  String?
+    eventType        WebhookEventType
+    webhookUrl       String
+    payload          Json
+    headers          Json?
+    httpStatus       Int?
+    response         String?
+    deliveryAttempts Int                   @default(0)
+    maxRetries       Int                   @default(3)
+    status           WebhookDeliveryStatus @default(PENDING)
+    nextRetryAt      DateTime?
+    lastAttemptAt    DateTime?
+    deliveredAt      DateTime?
+    createdAt        DateTime              @default(now())
+    updatedAt        DateTime              @updatedAt
+
+    // Relations
+    paymentIntent PaymentIntent? @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
+
+    @@index([paymentIntentId])
+    @@index([status])
+    @@index([eventType])
+    @@index([nextRetryAt])
+    @@index([createdAt])
+    @@map("webhook_deliveries")
+}
+
+// =====================================
+// CONFIGURATION & SETTINGS
+// =====================================
+
+model PaymentGatewayConfig {
+    id               String          @id @default(uuid())
+    name             String          @unique
+    gatewayType      GatewayType
+    isActive         Boolean         @default(true)
+    isDefault        Boolean         @default(false)
+    apiKey           String? // Encrypted
+    secretKey        String? // Encrypted
+    webhookSecret    String? // Encrypted
+    sandboxMode      Boolean         @default(true)
+    supportedMethods PaymentMethod[]
+    settings         Json? // Gateway-specific settings
+    createdAt        DateTime        @default(now())
+    updatedAt        DateTime        @updatedAt
+
+    @@index([isActive])
+    @@index([isDefault])
+    @@map("payment_gateway_configs")
+}
+
+// =====================================
+// ENUMS
+// =====================================
+
+enum PaymentIntentStatus {
+    PENDING // Created but not processed
+    PROCESSING // Currently being processed
+    SUCCEEDED // Successfully processed
+    FAILED // Processing failed
+    CANCELLED // Cancelled by user/system
+    REQUIRES_ACTION // Requires additional user action
+    REQUIRES_CONFIRMATION // Requires confirmation
 }
 
 enum PaymentStatus {
     PENDING
-    SUCCESS
+    PROCESSING
+    SUCCEEDED
     FAILED
+    CANCELLED
     REFUNDED
+    PARTIALLY_REFUNDED
 }
 
-model Payment {
-    id                    String        @id @default(uuid())
-    subscriptionId        String
-    amount                Int
-    status                PaymentStatus
-    stripePaymentIntentId String?
-    stripeChargeId        String?
-    createdAt             DateTime      @default(now())
-    updatedAt             DateTime      @updatedAt
-    failedAttempts        Int           @default(0)
+enum RefundStatus {
+    PENDING
+    PROCESSING
+    SUCCEEDED
+    FAILED
+    CANCELLED
+}
 
-    @@map("payments")
+enum RefundReason {
+    REQUESTED_BY_CUSTOMER
+    DUPLICATE
+    FRAUDULENT
+    SUBSCRIPTION_CANCELLED
+    OTHER
+}
+
+enum PaymentMethod {
+    CREDIT_CARD
+    DEBIT_CARD
+    BANK_TRANSFER
+    DIGITAL_WALLET
+    CRYPTOCURRENCY
+    OTHER
+}
+
+enum GatewayType {
+    STRIPE
+    PAYPAL
+    SQUARE
+    RAZORPAY
+}
+
+enum WebhookEventType {
+    PAYMENT_INTENT_CREATED
+    PAYMENT_INTENT_SUCCEEDED
+    PAYMENT_INTENT_FAILED
+    PAYMENT_INTENT_CANCELLED
+    PAYMENT_SUCCEEDED
+    PAYMENT_FAILED
+    REFUND_CREATED
+    REFUND_SUCCEEDED
+    REFUND_FAILED
+}
+
+enum WebhookDeliveryStatus {
+    PENDING
+    DELIVERED
+    FAILED
+    RETRYING
+    ABANDONED
 }

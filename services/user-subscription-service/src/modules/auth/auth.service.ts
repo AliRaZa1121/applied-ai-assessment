@@ -19,7 +19,7 @@ import {
   LoginResponseDto,
   RefreshTokenResponseDTO,
   UserResponse,
-} from 'src/utilities/swagger-responses/auth-response';
+} from 'src/modules/auth/dto/auth-response';
 import { BaseResponseDto } from 'src/utilities/swagger-responses/base-response';
 import { TokenService } from '../tokens/token.service';
 import { ForgetPasswordRequestDTO } from './dto/forget-password.dto';
@@ -163,7 +163,7 @@ export default class AuthService {
     const token = await this._tokenService.getToken({
       identifier: data.token,
       reason: TokenReason.FORGOT_PASSWORD,
-      status: TokenStatus.ALIVE,
+      status: TokenStatus.ACTIVE,
     });
 
     if (!token) {
