@@ -13,7 +13,7 @@ import RedisService from './redis.service';
       useFactory: async (configService: ConfigService) => {
         return {
           store: redisStore,
-          host: configService.get<string>('REDIS_HOST', 'localhost'),
+          host: configService.get<string>('REDIS_HOST', 'redis'),
           port: configService.get<number>('REDIS_PORT', 6379),
         } as RedisClientOptions;
       },

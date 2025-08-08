@@ -1,7 +1,7 @@
 export const MICROSERVICES = {
     NOTIFICATION_SERVICE: 'notification_service_process',
     PAYMENT_SERVICE: 'payment_service_process',
-    USER_SUBSCRIPTION_SERVICE: 'user_subscription_service_process',
+    USER_SUBSCRIPTION_SERVICE: 'user_subscription_service_process', // Uncomment if needed
 };
 
 export const MICROSERVICES_MESSAGE_COMMANDS = {
@@ -17,3 +17,4 @@ export const MICROSERVICES_MESSAGE_COMMANDS = {
         CANCEL_PAYMENT: 'payment_service_cancel_payment',
     }
 };
+

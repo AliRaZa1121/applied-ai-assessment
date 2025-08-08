@@ -58,6 +58,7 @@ function listService() {
                 { name: 'Generate', value: 'generate' },
                 { name: 'Studio', value: 'studio' },
                 { name: 'Seed', value: 'db seed' },
+                { name: 'Reset', value: 'reset' },
             ],
         },
     ]);

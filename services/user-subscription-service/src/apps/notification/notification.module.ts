@@ -1,7 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
-import { MICROSERVICES } from 'src/utilities/constant/microservice-constant';
 import { NotificationService } from './notification.service';
+import { MICROSERVICES } from 'src/utilities/constant/microservice-constant';
 
 @Global()
 @Module({
@@ -11,7 +11,7 @@ import { NotificationService } from './notification.service';
                 name: MICROSERVICES.NOTIFICATION_SERVICE,
                 transport: Transport.RMQ,
                 options: {
-                    urls: ['amqp://guest:guest@rabbitmq:5672'],  
+                    urls: ['amqp://guest:guest@rabbitmq:5672'],
                     queue: MICROSERVICES.NOTIFICATION_SERVICE,
                     queueOptions: {
                         durable: false,
