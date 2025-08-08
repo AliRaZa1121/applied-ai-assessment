@@ -1,25 +1,40 @@
 #!/usr/bin/env node
 const { execSync } = require('child_process');
 const path = require('path');
+const inquirer = require('inquirer');
+
+
+function listService() {
+    return [
+        { service: 'user-subscription-service', container: 'user_subscription_service' },
+        { service: 'notification-service', container: 'notification_service' }
+    ];
+}
+
 
 (async () => {
-    // ESM-friendly import for inquirer v9+
-    const inquirerMod = await import('inquirer');
-    const prompt = inquirerMod.default?.prompt ?? inquirerMod.prompt;
+    // 1) Pick service (from running containers)
+    const services = listService();
 
-    const { service } = await prompt([
+    if (services.length === 0) {
+        console.error('❌ No running Docker containers found. Start your stack first (e.g., npm run docker:dev).');
+        process.exit(1);
+    }
+
+    const { service } = await inquirer.prompt([
         {
             type: 'list',
             name: 'service',
-            message: 'Select service:',
-            choices: [
-                { name: 'User Service', value: 'user' },
-                { name: 'Payment Service', value: 'payment' },
-            ],
+            message: 'Select service (Docker container):',
+            choices: services.map(s => ({
+                name: `${s.service}  (${s.container})`,
+                value: s.service,
+            })),
         },
     ]);
 
-    const { env } = await prompt([
+    // 2) Pick environment
+    const { env } = await inquirer.prompt([
         {
             type: 'list',
             name: 'env',
@@ -28,10 +43,12 @@ const path = require('path');
                 { name: 'Development', value: 'development' },
                 { name: 'Production', value: 'production' },
             ],
+            default: 'development',
         },
     ]);
 
-    const { action } = await prompt([
+    // 3) Pick action
+    const { action } = await inquirer.prompt([
         {
             type: 'list',
             name: 'action',
@@ -45,9 +62,32 @@ const path = require('path');
         },
     ]);
 
+    // Optional extra input for migrate dev --name <x>
     let args = [];
     if (action === 'migrate') {
-        args = [env === 'production' ? 'deploy' : 'dev'];
+        const sub = env === 'production' ? 'deploy' : 'dev';
+        args.push(sub);
+
+        if (sub === 'dev') {
+            const { withName, migrationName } = await inquirer.prompt([
+                {
+                    type: 'confirm',
+                    name: 'withName',
+                    message: 'Provide a migration name?',
+                    default: false,
+                },
+                {
+                    type: 'input',
+                    name: 'migrationName',
+                    message: 'Migration name:',
+                    when: (ans) => ans.withName,
+                    validate: (v) => (v && v.trim().length > 0) || 'Please enter a name or cancel.',
+                },
+            ]);
+            if (withName && migrationName) {
+                args.push('--name', JSON.stringify(migrationName.trim()));
+            }
+        }
     }
 
     const runnerPath = path.join('scripts', 'prisma-runner.js');
