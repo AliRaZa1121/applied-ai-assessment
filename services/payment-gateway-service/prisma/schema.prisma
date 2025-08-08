@@ -1,16 +1,29 @@
 datasource db {
     provider = "postgresql"
-    url      = env("DATABASE_URL")
+    url      = env("PAYMENT_DATABASE_URL")
 }
 
 generator client {
     provider = "prisma-client-js"
 }
 
+enum PaymentStatus {
+    PENDING
+    SUCCESS
+    FAILED
+    REFUNDED
+}
+
 model Payment {
-    id             String   @id @default(uuid())
-    subscriptionId String
-    amount         Int
-    status         String // e.g., 'pending', 'success', 'failed'
-    createdAt      DateTime @default(now())
+    id                    String        @id @default(uuid())
+    subscriptionId        String
+    amount                Int
+    status                PaymentStatus
+    stripePaymentIntentId String?
+    stripeChargeId        String?
+    createdAt             DateTime      @default(now())
+    updatedAt             DateTime      @updatedAt
+    failedAttempts        Int           @default(0)
+
+    @@map("payments")
 }

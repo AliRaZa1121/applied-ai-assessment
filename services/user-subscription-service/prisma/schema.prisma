@@ -1,0 +1,44 @@
+datasource db {
+    provider = "postgresql"
+    url      = env("USER_DATABASE_URL")
+}
+
+generator client {
+    provider      = "prisma-client-js"
+    binaryTargets = ["windows", "linux-musl-openssl-3.0.x", "native"]
+}
+
+model User {
+    id        String   @id @default(uuid())
+    email     String   @unique
+    name      String
+    password  String
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    Token     Token[]
+
+    @@map("users")
+}
+
+model Token {
+    id         String      @id @default(uuid())
+    identifier String      @unique
+    reason     TokenReason
+    status     TokenStatus
+    userId     String
+    user       User        @relation(fields: [userId], references: [id])
+    createdAt  DateTime    @default(now())
+    updatedAt  DateTime    @updatedAt
+}
+
+enum TokenReason {
+    FORGOT_PASSWORD
+    RESET_PASSWORD
+    VERIFICATION
+    CHANGE_PASSWORD
+}
+
+enum TokenStatus {
+    EXPIRED
+    ALIVE
+}

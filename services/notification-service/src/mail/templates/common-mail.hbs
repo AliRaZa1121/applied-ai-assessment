@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en-US">
+
+<head>
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
+    <title>{{ app_name }}</title>
+    <meta name="description" content="{{ app_name }}">
+    <style type="text/css">
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Open Sans', sans-serif;
+            background-color: #f4f6f9;
+            color: #333;
+        }
+
+        a {
+            text-decoration: none;
+            color: #007bff;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        p {
+            margin: 0;
+            padding: 0 15px;
+            line-height: 1.6;
+            text-align: left;
+            color: #555;
+        }
+
+        .email-container {
+            width: 100%;
+            background-color: #f4f6f9;
+            padding: 30px 0;
+            text-align: center; /* Ensure the table content is centered */
+        }
+
+        .email-content {
+            max-width: 670px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .email-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .email-header h2 {
+            font-size: 26px;
+            color: #333;
+        }
+
+        .email-body {
+            text-align: left;
+        }
+
+        .email-button {
+            background-color: #007bff;
+            color: #ffffff;
+            padding: 12px 24px;
+            font-weight: 600;
+            text-transform: uppercase;
+            border-radius: 4px;
+            display: inline-block;
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        .email-footer {
+            text-align: center;
+            font-size: 12px;
+            color: #aaa;
+            margin-top: 40px;
+        }
+
+        .email-footer p {
+            margin: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <table cellspacing="0" border="0" cellpadding="0" class="email-container">
+        <tr>
+            <td>
+                <table class="email-content">
+                    <tr>
+                        <td class="email-header">
+                            <h2>{{ app_name }}</h2>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="email-body">
+                            <p><strong>Hi {{name}},</strong></p>
+                            <p>{{{body}}}</p>
+
+                            {{#if link}}
+                            <div style="text-align: center;">
+                                <a href="{{link}}" class="email-button">{{ linkText }}</a>
+                            </div>
+                            {{/if}}
+
+                            <p>&nbsp;</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="email-footer">
+                            <p>&copy; {{ current_year }} {{ app_name }}. All rights reserved.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

@@ -8,6 +8,8 @@ services:
       POSTGRES_USER: ${USER_DB_USER:-postgres}
       POSTGRES_PASSWORD: ${USER_DB_PASSWORD:-postgres}
       POSTGRES_DB: ${USER_DB_NAME:-user_subscription_db}
+      POSTGRES_HOST: ${USER_DB_HOST:-localhost}
+      POSTGRES_PORT: ${USER_DB_PORT:-5433}
     ports:
       - '5433:5432'
     volumes:
@@ -27,6 +29,8 @@ services:
       POSTGRES_USER: ${PAYMENT_DB_USER:-postgres}
       POSTGRES_PASSWORD: ${PAYMENT_DB_PASSWORD:-postgres}
       POSTGRES_DB: ${PAYMENT_DB_NAME:-payment_gateway_db}
+      POSTGRES_HOST: ${PAYMENT_DB_HOST:-localhost}
+      POSTGRES_PORT: ${PAYMENT_DB_PORT:-5434}
     ports:
       - '5434:5432'
     volumes:
@@ -37,10 +41,33 @@ services:
       timeout: 5s
       retries: 5
 
+  # RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - '5672:5672' # RabbitMQ broker
+      - '15672:15672' # RabbitMQ management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+      - rabbitmq-log:/var/log/rabbitmq
+
+  # Redis
+  redis:
+    image: redis:7
+    container_name: redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+
   # User Subscription Service
   user-subscription-service:
     build:
-      context: .
+      context: ./services/user-subscription-service
       dockerfile: ${DOCKERFILE:-Dockerfile.dev}
     container_name: user_subscription_service
     restart: unless-stopped
@@ -48,11 +75,11 @@ services:
       postgres-user:
         condition: service_healthy
     env_file:
-      - .env.${NODE_ENV} 
+      - .env.${NODE_ENV}
     ports:
       - '3001:3000'
     volumes:
-      - .:/app
+      - ./services/user-subscription-service:/app
       - /app/node_modules
     command: >
       sh -c "npm run start:dev"
@@ -68,7 +95,7 @@ services:
       postgres-payment:
         condition: service_healthy
     env_file:
-      - .env.${NODE_ENV} 
+      - .env.${NODE_ENV}
     ports:
       - '3002:3000'
     volumes:
@@ -77,6 +104,31 @@ services:
     command: >
       sh -c "npm run start:dev"
 
+  # Notification Service
+  notification-service:
+    build:
+      context: ./services/notification-service
+      dockerfile: ${DOCKERFILE:-Dockerfile.dev}
+    container_name: notification_service
+    restart: unless-stopped
+    depends_on:
+      rabbitmq:
+        condition: service_started
+      redis:
+        condition: service_started
+    env_file:
+      - .env.${NODE_ENV}
+    ports:
+      - '3003:3000'
+    volumes:
+      - ./services/notification-service:/app
+      - /app/node_modules
+    command: >
+      sh -c "npm run start:dev"
+
 volumes:
   pgdata-user:
   pgdata-payment:
+  rabbitmq-data:
+  rabbitmq-log:
+  redis_data:
