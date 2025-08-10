@@ -57,6 +57,7 @@ export default class SubscriptionService {
             }
 
             // Validate payment ID with payment gateway service
+            // paymentId should be unique and not already used
             const isValidPaymentId = await this._paymentService.validatePaymentId(paymentId);
             console.log('Payment ID validation result:', isValidPaymentId);
             if (isValidPaymentId) {
