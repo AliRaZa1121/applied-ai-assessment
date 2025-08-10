@@ -176,7 +176,6 @@ MAIL_PASS
 | `npm run docker:down-dev`  | Stop & clean dev containers                             |
 | `npm run docker:down-prod` | Stop & clean prod containers                            |
 | `npm run prisma:menu`      | Interactive menu to run Prisma commands for any service |
-| `npm run prisma:help`      | Show Prisma command usage examples                      |
 
 ---
 

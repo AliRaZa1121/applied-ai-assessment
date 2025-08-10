@@ -10,7 +10,6 @@
     "docker:prod": "cross-env DOCKERFILE=Dockerfile NODE_ENV=production docker-compose --env-file .env.production up --build -d",
     "docker:down-dev": "cross-env DOCKERFILE=Dockerfile.dev NODE_ENV=development docker-compose down --volumes --remove-orphans",
     "docker:down-prod": "cross-env DOCKERFILE=Dockerfile NODE_ENV=production docker-compose --env-file .env.production down --volumes --remove-orphans",
-    "prisma:help": "node scripts/prisma-runner.js",
     "prisma:menu": "node scripts/prisma-cli.js"
   },
   "devDependencies": {
