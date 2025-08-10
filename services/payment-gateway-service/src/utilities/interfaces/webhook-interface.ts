@@ -6,7 +6,7 @@ export interface DummyWebhookData {
     payload: {
         id: string; // e.g., evt_xxxO
         object: 'event';
-        type: string; // e.g., "payment_succeeded"
+        type: 'SUBSCRIPTION_CREATED' | 'SUBSCRIPTION_UPDATED' | 'SUBSCRIPTION_CANCELLED'; 
         data: {
             object: {
                 id: string; // e.g., pi_xxx

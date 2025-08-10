@@ -2,10 +2,12 @@ import { WebhookDeliveryStatus, WebhookEventType } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { DummyWebhookData } from '../interfaces/webhook-interface';
 
+type webHookType = 'SUBSCRIPTION_CREATED' | 'SUBSCRIPTION_UPDATED' | 'SUBSCRIPTION_CANCELLED';
 export function generateDummyWebhookData(
     paymentId: string,
     amount: number,
     currency: string,
+    type: webHookType = 'SUBSCRIPTION_CREATED'
 ) : DummyWebhookData  {
     return {
         paymentId,
@@ -14,7 +16,7 @@ export function generateDummyWebhookData(
         payload: {
             id: `evt_${randomUUID()}`,
             object: 'event',
-            type: 'payment_succeeded',
+            type,
             data: {
                 object: {
                     id: `pi_${randomUUID()}`,

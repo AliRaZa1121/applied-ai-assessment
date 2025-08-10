@@ -1,6 +1,6 @@
-import { Body, Get, HttpStatus, Param, Post, Query } from '@nestjs/common';
+import { Body, Get, HttpStatus, Post } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
-import { ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { ApiResponse } from '@nestjs/swagger';
 import { User } from '@prisma/client';
 import { ApiRouting } from 'src/core/decorators/api-controller.decorator';
 import { AuthUser } from 'src/core/decorators/auth-user.decorator';
@@ -9,12 +9,12 @@ import { MICROSERVICES_MESSAGE_COMMANDS } from 'src/utilities/constant/microserv
 import { DummyWebhookData } from 'src/utilities/interfaces/webhook-interface';
 import { BaseResponseDto } from 'src/utilities/swagger-responses/base-response';
 import {
-    BillingHistoryResponseDto,
     SubscriptionResponseDto,
     SubscriptionWithPlanResponseDto
 } from './dto/subscription-response.dto';
 import {
-    CreateSubscriptionRequestDTO
+    CreateSubscriptionRequestDTO,
+    UpdateSubscriptionRequestDTO
 } from './dto/subscription.dto';
 import WebhookService from './providers/webhook.service';
 import SubscriptionService from './subscription.service';
@@ -70,9 +70,22 @@ export default class SubscriptionController {
         return this._subscriptionService.getActiveSubscription(user.id);
     }
 
-    @Post('/:subscriptionId/cancel')
+    @Get('/update-subscription')
+    @Authorized()   
+    @ApiResponse({
+        status: HttpStatus.OK,
+        type: BaseResponseDto,
+        description: 'Successfully updated subscription'
+    })
+    async updateSubscription(
+        @AuthUser() user: User,
+        @Body() data: UpdateSubscriptionRequestDTO,
+    ): Promise<BaseResponseDto<SubscriptionResponseDto>> {
+        return this._subscriptionService.updateSubscription(user.id, data);
+    }
+
+    @Post('/cancel-subscription')
     @Authorized()
-    @ApiParam({ name: 'subscriptionId', description: 'Subscription ID' })
     @ApiResponse({
         status: HttpStatus.OK,
         type: BaseResponseDto,
@@ -80,28 +93,8 @@ export default class SubscriptionController {
     })
     async cancelSubscription(
         @AuthUser() user: User,
-        @Param('subscriptionId') subscriptionId: string,
-    ): Promise<BaseResponseDto<SubscriptionResponseDto>> {
-        return this._subscriptionService.cancelSubscription(user.id, subscriptionId);
-    }
-
-    // =====================================
-    // BILLING & REPORTING
-    // =====================================
-
-    @Get('/billing-history')
-    @Authorized()
-    @ApiQuery({ name: 'subscriptionId', required: false, description: 'Filter by subscription ID' })
-    @ApiResponse({
-        status: HttpStatus.OK,
-        type: BaseResponseDto,
-        description: 'Retrieved billing history'
-    })
-    async getBillingHistory(
-        @AuthUser() user: User,
-        @Query('subscriptionId') subscriptionId?: string,
-    ): Promise<BaseResponseDto<BillingHistoryResponseDto[]>> {
-        return this._subscriptionService.getBillingHistory(user.id, subscriptionId);
+    ): Promise<BaseResponseDto<void>> {
+        return this._subscriptionService.cancelSubscription(user.id);
     }
 
     // =====================================
@@ -111,15 +104,5 @@ export default class SubscriptionController {
     @MessagePattern(MICROSERVICES_MESSAGE_COMMANDS.USER_SUBSCRIPTION_SERVICE.CREATE_SUBSCRIPTION)
     async createSubscriptionHandler(@Payload() data: DummyWebhookData): Promise<any> {
         return await this._webhookService.createSubscriptionHandler(data);
-    }
-
-    @MessagePattern(MICROSERVICES_MESSAGE_COMMANDS.USER_SUBSCRIPTION_SERVICE.UPDATE_SUBSCRIPTION)
-    async updateSubscriptionHandler(@Payload() data: DummyWebhookData): Promise<any> {
-        return await this._webhookService.updateSubscriptionHandler(data);
-    }
-
-    @MessagePattern(MICROSERVICES_MESSAGE_COMMANDS.USER_SUBSCRIPTION_SERVICE.CANCEL_SUBSCRIPTION)
-    async cancelSubscriptionHandler(@Payload() data: DummyWebhookData): Promise<any> {
-        return await this._webhookService.cancelSubscriptionHandler(data);
     }
 }

@@ -116,7 +116,7 @@ model BillingHistory {
     amount           Int // Amount in cents
     currency         String        @default("USD")
     status           BillingStatus
-    gatewayPaymentId String? // Payment ID from payment service
+    gatewayPaymentId String? // External payment gateway ID
     description      String?
     billingDate      DateTime
     createdAt        DateTime      @default(now())

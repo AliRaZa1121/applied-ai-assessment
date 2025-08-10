@@ -10,9 +10,9 @@ import {
     SubscriptionWithPlanResponseDto
 } from './dto/subscription-response.dto';
 import {
-    CreateSubscriptionRequestDTO
+    CreateSubscriptionRequestDTO,
+    UpdateSubscriptionRequestDTO
 } from './dto/subscription.dto';
-import { ProcessWebhookDTO } from './dto/webhook.dto';
 
 @Injectable()
 export default class SubscriptionService {
@@ -56,6 +56,13 @@ export default class SubscriptionService {
                 throw new BadRequestException('Invalid or inactive plan');
             }
 
+            // Validate payment ID with payment gateway service
+            const isValidPaymentId = await this._paymentService.validatePaymentId(paymentId);
+            console.log('Payment ID validation result:', isValidPaymentId);
+            if (isValidPaymentId) {
+                throw new BadRequestException('Invalid payment ID');
+            }
+
             const now = new Date();
             let currentPeriodStart = now;
             let currentPeriodEnd = new Date();
@@ -71,44 +78,47 @@ export default class SubscriptionService {
                 currentPeriodEnd = new Date(currentPeriodStart.getTime() + (7 * 24 * 60 * 60 * 1000));
             }
 
-            // Create subscription with PENDING status initially
-            const subscription = await this._databaseService.subscription.create({
-                data: {
-                    userId,
-                    planId: data.planId,
-                    status: SubscriptionStatus.PENDING,
-                    currentPeriodStart,
-                    currentPeriodEnd,
-                }
-            });
+            // Transactional block
+            const result = await this._databaseService.$transaction(async (prisma) => {
+                // Create subscription with PENDING status initially
+                const subscription = await prisma.subscription.create({
+                    data: {
+                        userId,
+                        planId: data.planId,
+                        status: SubscriptionStatus.PENDING,
+                        currentPeriodStart,
+                        currentPeriodEnd,
+                    }
+                });
 
-            // Billing history record for subscription creation
-            await this._databaseService.billingHistory.create({
-                data: {
+                // Billing history record for subscription creation
+                await prisma.billingHistory.create({
+                    data: {
+                        subscriptionId: subscription.id,
+                        amount: plan.price,
+                        currency: 'USD',
+                        gatewayPaymentId: paymentId,
+                        status: BillingStatus.PENDING,
+                        description: `Subscription to ${plan.name} plan`,
+                        billingDate: new Date(),
+                    }
+                });
+
+                // Initiate payment intent with payment gateway service
+                await this._paymentService.createPaymentIntent({
                     subscriptionId: subscription.id,
+                    userId,
+                    paymentId: paymentId,
                     amount: plan.price,
                     currency: 'USD',
-                    gatewayPaymentId: paymentId,
-                    status: BillingStatus.PENDING,
-                    description: `Subscription to ${plan.name} plan`,
-                    billingDate: new Date(),
-                }
-            });
+                    description: `Subscription to ${plan.name} plan (Payment ID: ${paymentId})`
+                });
 
-
-
-            // Initiate payment intent with payment gateway service
-            this._paymentService.createPaymentIntent({
-                subscriptionId: subscription.id,
-                userId,
-                paymentId: paymentId,
-                amount: plan.price,
-                currency: 'USD',
-                description: `Subscription to ${plan.name} plan (Payment ID: ${paymentId})`
+                return subscription;
             });
 
             return successApiWrapper(
-                subscription,
+                result,
                 'Subscription created successfully',
                 HttpStatus.CREATED
             );
@@ -160,15 +170,121 @@ export default class SubscriptionService {
     }
 
 
-    //NOTE: In This Function, I will call the payment-gateway service to cancel the subscription from payment gateway as well
+    async updateSubscription(userId: string, data: UpdateSubscriptionRequestDTO): Promise<BaseResponseDto<SubscriptionResponseDto>> {
+        const { newPlanId } = data;
+
+        // Check if user has an active subscription
+        const existingSubscription = await this._databaseService.subscription.findFirst({
+            where: {
+                userId,
+                status: {
+                    in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.PAST_DUE]
+                }
+            }
+        });
+
+        if (!existingSubscription) {
+            throw new BadRequestException('No active subscription found for user');
+        }
+
+        if (existingSubscription.planId === newPlanId) {
+            throw new BadRequestException('You are already subscribed to this plan');
+        }
+
+        // Verify new plan exists and is active
+        const newPlan = await this._databaseService.plan.findUnique({
+            where: { id: newPlanId }
+        });
+
+        if (!newPlan || !newPlan.isActive) {
+            throw new BadRequestException('Invalid or Inactive Plan');
+        }
+
+        if (newPlan.gatewayPlanId == null || newPlan.gatewayPlanId == undefined) {
+            throw new BadRequestException('Plan does not have a valid gateway plan ID');
+        }
+
+        // Call payment gateway to update subscription
+        const gatewayPaymentId = await this._paymentService.updateSubscription({
+            subscriptionId: existingSubscription.id,
+            gatewayPlanId: newPlan.gatewayPlanId,
+            userId
+        });
+
+        if (!gatewayPaymentId) {
+            throw new BadRequestException('Failed to update subscription with payment gateway');
+        }
+
+
+        // Transactional block for all DB changes
+        const result = await this._databaseService.$transaction(async (prisma) => {
+            // Cancel existing subscription
+            await prisma.subscription.update({
+                where: { id: existingSubscription.id },
+                data: {
+                    status: SubscriptionStatus.CANCELLED,
+                }
+            });
+
+            // Create new subscription with the new plan
+            const now = new Date();
+            let currentPeriodStart = now;
+            let currentPeriodEnd = new Date();
+            // Calculate current period end based on billing interval
+            if (newPlan.billingInterval === BillingInterval.MONTHLY) {
+                currentPeriodEnd = new Date(currentPeriodStart);
+                currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
+            } else if (newPlan.billingInterval === BillingInterval.YEARLY) {
+                currentPeriodEnd = new Date(currentPeriodStart);
+                currentPeriodEnd.setFullYear(currentPeriodEnd.getFullYear() + 1);
+            } else if (newPlan.billingInterval === BillingInterval.WEEKLY) {
+                currentPeriodEnd = new Date(currentPeriodStart.getTime() + (7 * 24 * 60 * 60 * 1000));
+            }
+
+            const newSubscription = await prisma.subscription.create({
+                data: {
+                    userId,
+                    planId: newPlanId,
+                    status: SubscriptionStatus.ACTIVE,
+                    currentPeriodStart,
+                    currentPeriodEnd,
+                }
+            });
+
+            // Billing history record for subscription update
+            await prisma.billingHistory.create({
+                data: {
+                    subscriptionId: newSubscription.id,
+                    amount: newPlan.price,
+                    currency: 'USD',
+                    gatewayPaymentId: gatewayPaymentId,
+                    status: BillingStatus.PENDING,
+                    description: `Updated subscription to ${newPlan.name} plan`,
+                    billingDate: new Date(),
+                }
+            });
+
+            return newSubscription;
+        });
+
+        return successApiWrapper(
+            result as SubscriptionResponseDto,
+            'Subscription updated successfully',
+            HttpStatus.OK
+        );
+
+    }
+
+
     async cancelSubscription(
         userId: string,
-        subscriptionId: string,
-    ): Promise<BaseResponseDto<SubscriptionResponseDto>> {
+    ): Promise<BaseResponseDto<void>> {
         const subscription = await this._databaseService.subscription.findFirst({
             where: {
-                id: subscriptionId,
-                userId
+                userId,
+                status: {
+                    in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.PAST_DUE]
+                }
             }
         });
 
@@ -176,13 +292,9 @@ export default class SubscriptionService {
             throw new NotFoundException('Subscription not found');
         }
 
-        if (subscription.status === SubscriptionStatus.CANCELLED) {
-            throw new BadRequestException('Subscription is already cancelled');
-        }
-
         // Cancel any active payment intents with the payment gateway service
         try {
-            await this._paymentService.cancelPayment(subscriptionId);
+            await this._paymentService.cancelSubscription(userId);
         } catch (error) {
             // Log error but don't fail the cancellation process
             console.error('Failed to cancel payment intent:', error);
@@ -194,12 +306,12 @@ export default class SubscriptionService {
         };
 
         const updatedSubscription = await this._databaseService.subscription.update({
-            where: { id: subscriptionId },
+            where: { id: subscription.id },
             data: updateData
         });
 
         return successApiWrapper(
-            updatedSubscription as SubscriptionResponseDto,
+            null,
             'Subscription cancelled successfully',
             HttpStatus.OK
         );
@@ -260,133 +372,4 @@ export default class SubscriptionService {
         }
     }
 
-
-
-    // =====================================
-    // WEBHOOK PROCESSING
-    // =====================================
-
-    async processWebhook(data: ProcessWebhookDTO): Promise<BaseResponseDto<void>> {
-        try {
-            // Create webhook event record for audit trail
-            await this._databaseService.webhookEvent.create({
-                data: {
-                    subscriptionId: data.eventData.subscriptionId || null,
-                    eventType: data.eventType as any,
-                    eventData: data.eventData,
-                }
-            });
-
-            // Process different webhook event types
-            switch (data.eventType) {
-                case 'payment_succeeded':
-                    await this.handlePaymentSucceeded(data.eventData);
-                    break;
-                case 'payment_failed':
-                    await this.handlePaymentFailed(data.eventData);
-                    break;
-                case 'subscription_created':
-                    await this.handleSubscriptionCreated(data.eventData);
-                    break;
-                case 'subscription_updated':
-                    await this.handleSubscriptionUpdated(data.eventData);
-                    break;
-                default:
-                    console.warn(`Unhandled webhook event type: ${data.eventType}`);
-            }
-
-            return successApiWrapper(
-                undefined,
-                'Webhook processed successfully',
-                HttpStatus.OK
-            );
-        } catch (error) {
-            throw new BadRequestException('Failed to process webhook');
-        }
-    }
-
-    // =====================================
-    // PRIVATE WEBHOOK HANDLERS
-    // =====================================
-
-    private async handlePaymentSucceeded(eventData: any): Promise<void> {
-        const { subscriptionId, amount, currency, paymentId } = eventData;
-
-        // Update subscription status to active
-        await this._databaseService.subscription.update({
-            where: { id: subscriptionId },
-            data: { status: SubscriptionStatus.ACTIVE }
-        });
-
-        // Create billing history record
-        await this._databaseService.billingHistory.create({
-            data: {
-                subscriptionId,
-                amount: amount,
-                currency: currency || 'USD',
-                status: BillingStatus.PAID,
-                gatewayPaymentId: paymentId,
-                billingDate: new Date(),
-                description: `Payment for subscription ${subscriptionId}`,
-            }
-        });
-    }
-
-    private async handlePaymentFailed(eventData: any): Promise<void> {
-        const { subscriptionId, amount, currency, error, paymentId } = eventData;
-
-        // Update subscription status to past due
-        await this._databaseService.subscription.update({
-            where: { id: subscriptionId },
-            data: { status: SubscriptionStatus.PAST_DUE }
-        });
-
-        // Create billing history record
-        await this._databaseService.billingHistory.create({
-            data: {
-                subscriptionId,
-                amount: amount,
-                currency: currency || 'USD',
-                status: BillingStatus.FAILED,
-                gatewayPaymentId: paymentId,
-                billingDate: new Date(),
-                description: `Failed payment for subscription ${subscriptionId}: ${error}`,
-            }
-        });
-    }
-
-    private async handleSubscriptionCreated(eventData: any): Promise<void> {
-        // Handle subscription creation from payment provider
-        const { subscriptionId, status } = eventData;
-
-        await this._databaseService.subscription.update({
-            where: { id: subscriptionId },
-            data: {
-                status: status === 'active' ? SubscriptionStatus.ACTIVE : SubscriptionStatus.PENDING
-            }
-        });
-    }
-
-    private async handleSubscriptionUpdated(eventData: any): Promise<void> {
-        // Handle subscription updates from payment provider
-        const { subscriptionId, status, planId } = eventData;
-
-        const updateData: any = {};
-
-        if (status) {
-            updateData.status = status === 'active' ? SubscriptionStatus.ACTIVE :
-                status === 'cancelled' ? SubscriptionStatus.CANCELLED :
-                    status === 'past_due' ? SubscriptionStatus.PAST_DUE :
-                        SubscriptionStatus.PENDING;
-        }
-
-        if (planId) {
-            updateData.planId = planId;
-        }
-
-        await this._databaseService.subscription.update({
-            where: { id: subscriptionId },
-            data: updateData
-        });
-    }
 }

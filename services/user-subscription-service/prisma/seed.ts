@@ -137,6 +137,7 @@ async function main() {
     });
 
     console.log('✅ Created users:', { johnDoe: johnDoe.id, janeSmith: janeSmith.id, bobJohnson: bobJohnson.id, aliceWilson: aliceWilson.id });
+    
 
     // Create Subscriptions
     const currentDate = new Date();

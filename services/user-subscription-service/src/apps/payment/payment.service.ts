@@ -1,9 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
+import { firstValueFrom } from 'rxjs';
 import { MICROSERVICES, MICROSERVICES_MESSAGE_COMMANDS } from 'src/utilities/constant/microservice-constant';
 import { CreatePaymentIntentRequest } from 'src/utilities/interfaces/payments/payment-intent.interface';
 import { PlanCreateInterface } from 'src/utilities/interfaces/payments/plan-create-interface';
 import { PlanUpdateInterface } from 'src/utilities/interfaces/payments/plan-update-interface';
+import { SubscriptionUpdateRequestDTO } from 'src/utilities/interfaces/payments/subscription-update.interface';
 
 
 export interface ConfirmPaymentRequest {
@@ -43,6 +45,18 @@ export class PaymentService {
         private readonly client: ClientProxy,
     ) { }
 
+    async validatePaymentId(paymentId: string): Promise<boolean> {
+        console.log('🔄 Validating payment ID via RabbitMQ:', paymentId);
+        const result = await firstValueFrom(
+            this.client.send<boolean>(
+                MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.VALIDATE_PAYMENT_ID,
+                paymentId
+            )
+        );
+        console.log('✅ Payment ID validation result:', result);
+        return result;
+    }
+
     /**
      * Create payment intent for subscription
      * Used when user creates a new subscription or upgrades
@@ -51,98 +65,39 @@ export class PaymentService {
         console.log('🔄 Creating payment intent via RabbitMQ:', data.subscriptionId);
         this.client.emit(MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.CREATE_PAYMENT_INTENT, data);
     }
-
+    
     /**
-     * Confirm payment intent
-     * Used to process the payment
+     * Update Subscription
+     * This method is used to update an existing subscription plan.
      */
-    async confirmPayment(data: ConfirmPaymentRequest): Promise<PaymentProcessingResponse> {
-        console.log('🔄 Confirming payment via RabbitMQ:', data.paymentIntentId);
-
-        try {
-            const result = await this.client.send<PaymentProcessingResponse>(
-                MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.CONFIRM_PAYMENT,
+    async updateSubscription(data: SubscriptionUpdateRequestDTO): Promise<string> {
+        console.log('🔄 Updating subscription via RabbitMQ:', data.subscriptionId);
+        // this.client.emit(MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.UPDATE_SUBSCRIPTION, data);
+        const result: string = await firstValueFrom(
+            this.client.send<string>(
+                MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.UPDATE_SUBSCRIPTION,
                 data
-            ).toPromise();
-
-            console.log('✅ Payment confirmed:', result?.paymentIntent.status);
-            return result!;
-        } catch (error) {
-            console.error('❌ Error confirming payment:', error);
-            throw error;
-        }
+            )
+        );
+        console.log('✅ Subscription updated:', result);
+        return result;
     }
 
-    /**
-     * Process payment automatically
-     * Used for subscription renewals and automatic billing
-     */
-    async processPayment(paymentIntentId: string, shouldSucceed: boolean = true): Promise<PaymentProcessingResponse> {
-        console.log('🔄 Processing payment via RabbitMQ:', paymentIntentId);
-
-        try {
-            const result = await this.client.send<PaymentProcessingResponse>(
-                MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.PROCESS_PAYMENT,
-                { paymentIntentId, shouldSucceed }
-            ).toPromise();
-
-            console.log('✅ Payment processed:', result?.simulation.success ? 'SUCCESS' : 'FAILED');
-            return result!;
-        } catch (error) {
-            console.error('❌ Error processing payment:', error);
-            throw error;
-        }
-    }
 
     /**
-     * Cancel payment intent
-     * Used when subscription is cancelled before payment
+     * Cancel Subscription
+     * This method is used to cancel an existing subscription.
      */
-    async cancelPayment(paymentIntentId: string): Promise<{ cancelled: boolean }> {
-        console.log('🔄 Cancelling payment via RabbitMQ:', paymentIntentId);
-
-        try {
-            const result = await this.client.send<{ cancelled: boolean }>(
-                MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.CANCEL_PAYMENT,
-                { paymentIntentId }
-            ).toPromise();
-
-            console.log('✅ Payment cancelled:', result?.cancelled);
-            return result!;
-        } catch (error) {
-            console.error('❌ Error cancelling payment:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Get payment status
-     * Used to check payment status
-     */
-    async getPaymentStatus(paymentIntentId: string): Promise<PaymentIntentResponse> {
-        console.log('🔄 Getting payment status via RabbitMQ:', paymentIntentId);
-
-        try {
-            const result = await this.client.send<PaymentIntentResponse>(
-                'payment_service_get_payment_status',
-                { paymentIntentId }
-            ).toPromise();
-
-            console.log('✅ Payment status retrieved:', result?.status);
-            return result!;
-        } catch (error) {
-            console.error('❌ Error getting payment status:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Emit payment event (fire and forget)
-     * Used for notifications and events that don't need response
-     */
-    emitPaymentEvent(eventType: string, data: any): void {
-        console.log('📤 Emitting payment event:', eventType);
-        this.client.emit(`payment_service_${eventType}`, data);
+    async cancelSubscription(userId: string): Promise<boolean> {
+        console.log('🔄 Canceling subscription via RabbitMQ for user:', userId);
+        const result: boolean = await firstValueFrom(
+            this.client.send<boolean>(
+                MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.CANCEL_SUBSCRIPTION,
+                userId
+            )
+        );
+        console.log('✅ Subscription canceled:', result);
+        return result;  
     }
 
 

@@ -4,9 +4,10 @@ import { PaymentService } from 'src/apps/payment/payment.service';
 import DatabaseService from 'src/database/database.service';
 import { successApiWrapper } from 'src/utilities/constant/response-constant';
 import { BaseResponseDto } from 'src/utilities/swagger-responses/base-response';
-import { CreatePlanRequestDTO, UpdatePlanRequestDTO } from '../subscription/dto';
+import { CreatePlanRequestDTO } from './dto/create-plan.dto';
 import { PlanListFilterDto } from './dto/plan-list-filter.dto';
 import { PlanResponseDto } from './dto/plan-response.dto';
+import { UpdatePlanRequestDTO } from './dto/update-plan.dto';
 
 @Injectable()
 export class PlanService {

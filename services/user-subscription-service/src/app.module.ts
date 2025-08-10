@@ -7,11 +7,12 @@ import { RedisModule } from './apps/cache/redis.module';
 import { NotificationModule } from './apps/notification/notification.module';
 import { PaymentModule } from './apps/payment/payment.module';
 import { HttpExceptionFilter } from './core/exceptions/http.exception';
+import { MicroserviceExceptionFilter } from './core/exceptions/RpcExceptionFilter';
 import DatabaseModule from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
-import { TokenModule } from './modules/tokens/token.module';
-import SubscriptionModule from './modules/subscription/subscription.module';
 import PlanModule from './modules/plan/plan.module';
+import SubscriptionModule from './modules/subscription/subscription.module';
+import { TokenModule } from './modules/tokens/token.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import PlanModule from './modules/plan/plan.module';
   providers: [
     AppService,
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
+    { provide: APP_FILTER, useClass: MicroserviceExceptionFilter },
   ],
 })
 export class AppModule {}
