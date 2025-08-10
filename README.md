@@ -1,98 +1,219 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 🧠 Applied AI – Microservices Architecture
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+This repository contains a **Dockerized microservices setup** for an application with:
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+- **User Subscription Service** – Manages users and subscription data.
+- **Payment Gateway Service** – Handles payment transactions.
+- **Notification Service** – Sends email notifications.
+- **PostgreSQL databases** – Separate DB instances for User and Payment services.
+- **RabbitMQ** – For inter-service messaging.
+- **Redis** – For caching and token storage.
 
-## Description
+---
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## 📂 Project Structure
 
-## Project setup
-
-```bash
-$ npm install
+```
+.
+├── docker-compose.yml               # Service definitions
+├── services/
+│   ├── user-subscription-service/    # User service source
+│   ├── payment-gateway-service/      # Payment service source
+│   └── notification-service/         # Notification service source
+├── scripts/
+│   ├── prisma-cli.js                 # Interactive Prisma menu
+│   └── prisma-runner.js              # Prisma runner logic
+├── .env.example                      # Example environment variables
+├── .env.development                  # Development environment variables
+├── .env.production                   # Production environment variables
+└── package.json                      # Docker scripts & Prisma helpers
 ```
 
-## Compile and run the project
+---
+
+## 🚀 Getting Started
+
+### 1️⃣ Prerequisites
+
+Make sure you have the following installed:
+
+- [Docker](https://www.docker.com/)
+- [Docker Compose](https://docs.docker.com/compose/)
+- [Node.js](https://nodejs.org/) (for local scripts like Prisma menu)
+
+---
+
+### 2️⃣ Install Dependencies
+
+Before running Docker commands, install Node.js dependencies:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm install
 ```
 
-## Run tests
+This ensures the Prisma helper scripts and any development tooling work properly.
+
+---
+
+### 3️⃣ Environment Variables
+
+Environment variables are split into three files:
+
+- **`.env.example`** → Template with placeholder values.
+- **`.env.development`** → Development settings.
+- **`.env.production`** → Production settings.
+
+**Setup**
+Copy `.env.example` to the desired environment file:
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+cp .env.example .env.development
+# OR
+cp .env.example .env.production
 ```
 
-## Deployment
+Fill in the appropriate values for your environment.
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+---
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### 4️⃣ Running in Development
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm run docker:dev
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+This will:
 
-## Resources
+- Build and run all services using `Dockerfile.dev`.
+- Load environment variables from `.env.development`.
+- Attach logs to your terminal.
 
-Check out a few resources that may come in handy when working with NestJS:
+**Stop and remove containers + volumes:**
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+```bash
+npm run docker:down-dev
+```
 
-## Support
+---
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+### 5️⃣ Running in Production
 
-## Stay in touch
+```bash
+npm run docker:prod
+```
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+This will:
 
-## License
+- Build and run services using `Dockerfile`.
+- Load environment variables from `.env.production`.
+- Run in detached mode (`-d`).
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+**Stop and remove containers + volumes:**
+
+```bash
+npm run docker:down-prod
+```
+
+---
+
+## 🛠 Services Overview
+
+| Service                   | Port (Host)      | Description                     |
+| ------------------------- | ---------------- | ------------------------------- |
+| **User Subscription API** | `3001`           | User & subscription management  |
+| **Payment Gateway API**   | `3002`           | Payment transactions            |
+| **Notification API**      | `3003`           | Sends email notifications       |
+| **Postgres User DB**      | `5433`           | Database for user subscriptions |
+| **Postgres Payment DB**   | `5434`           | Database for payments           |
+| **RabbitMQ**              | `5672` / `15672` | Messaging + Management UI       |
+| **Redis**                 | `6379`           | Caching & token storage         |
+
+---
+
+## ⚙️ Database Access
+
+You can connect to the databases locally via:
+
+- **User DB:** `localhost:5433`
+- **Payment DB:** `localhost:5434`
+
+Example:
+
+```bash
+psql -h localhost -p 5433 -U postgres -d user_subscription_db
+```
+
+---
+
+## 📬 Notification Service
+
+Email settings (SMTP) are configured via:
+
+```
+FROM_EMAIL
+MAIL_HOST
+MAIL_PORT
+MAIL_SECURE
+MAIL_USER
+MAIL_PASS
+```
+
+---
+
+## 🔑 JWT & Caching
+
+- JWT secrets and expiry times are set in the `.env` files.
+- Redis is used to cache tokens with expiry values.
+
+---
+
+## 🧰 Helpful Scripts
+
+| Command                    | Description                                             |
+| -------------------------- | ------------------------------------------------------- |
+| `npm run docker:dev`       | Start development environment                           |
+| `npm run docker:prod`      | Start production environment                            |
+| `npm run docker:down-dev`  | Stop & clean dev containers                             |
+| `npm run docker:down-prod` | Stop & clean prod containers                            |
+| `npm run prisma:menu`      | Interactive menu to run Prisma commands for any service |
+| `npm run prisma:help`      | Show Prisma command usage examples                      |
+
+---
+
+## 📦 Prisma Commands
+
+This project includes a helper CLI to make running Prisma commands inside Docker containers easier.
+
+### **Interactive Menu**
+
+Run:
+
+```bash
+npm run prisma:menu
+```
+
+You’ll be prompted to:
+
+1. **Select a service** – `user-subscription-service` or `payment-gateway-service`.
+2. **Select an environment** – Development or Production.
+3. **Select a Prisma action**:
+
+   - **Migrate**
+
+     - Development: `prisma migrate dev` (optionally with `--name <migration>`).
+     - Production: `prisma migrate deploy`.
+
+   - **Generate** – Generates Prisma client.
+   - **Seed** – Runs `prisma db seed`.
+   - **Reset** – Resets DB (development only, with cleanup).
+
+4. **Add optional flags** – Any extra Prisma CLI flags.
+
+The CLI wraps `scripts/prisma-runner.js`, which:
+
+- Loads the correct `.env` file.
+- Injects the correct `DATABASE_URL` into the container.
+- Handles DB locks and resets safely.
+- Runs Prisma inside the corresponding Docker container.
+
+---
