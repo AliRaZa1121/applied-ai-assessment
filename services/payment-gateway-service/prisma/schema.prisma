@@ -12,58 +12,25 @@ generator client {
 // PAYMENT PROCESSING
 // =====================================
 
-model PaymentIntent {
-    id             String              @id @default(uuid())
-    subscriptionId String // Reference to subscription in user service
-    userId         String // Reference to user in user service
-    amount         Int // Amount in cents
-    currency       String              @default("USD")
-    status         PaymentIntentStatus @default(PENDING)
-    paymentMethod  PaymentMethod       @default(CREDIT_CARD)
-    clientSecret   String?             @unique
-    description    String?
-    metadata       Json? // Additional metadata
-    failureReason  String?
-    failedAttempts Int                 @default(0)
-    lastAttemptAt  DateTime?
-    nextRetryAt    DateTime?
-    confirmedAt    DateTime?
-    createdAt      DateTime            @default(now())
-    updatedAt      DateTime            @updatedAt
-
-    // Relations
-    payments          Payment[]
-    webhookDeliveries WebhookDelivery[]
-
-    @@index([subscriptionId])
-    @@index([userId])
-    @@index([status])
-    @@index([createdAt])
-    @@index([clientSecret])
-    @@map("payment_intents")
-}
-
 model Payment {
     id               String        @id @default(uuid())
-    paymentIntentId  String
     amount           Int // Amount in cents
     currency         String        @default("USD")
     status           PaymentStatus @default(PENDING)
     gatewayPaymentId String? // External payment gateway ID
     gatewayChargeId  String? // External charge ID
-    gatewayResponse  Json? // Full gateway response
     processingFee    Int? // Processing fee in cents
     netAmount        Int? // Net amount after fees
     processedAt      DateTime?
     createdAt        DateTime      @default(now())
     updatedAt        DateTime      @updatedAt
 
-    // Relations
-    paymentIntent PaymentIntent @relation(fields: [paymentIntentId], references: [id], onDelete: Cascade)
+    // Relations (Webhook)
+    webhookDeliveries WebhookDelivery[]
 
-    @@index([paymentIntentId])
     @@index([status])
     @@index([gatewayPaymentId])
+    @@index([gatewayChargeId])
     @@index([processedAt])
     @@map("payments")
 }
@@ -73,18 +40,17 @@ model Payment {
 // =====================================
 
 model WebhookDelivery {
-    id               String                @id @default(uuid())
-    paymentIntentId  String?
-    eventType        WebhookEventType
-    payload          Json
-    status           WebhookDeliveryStatus @default(PENDING)
-    createdAt        DateTime              @default(now())
-    updatedAt        DateTime              @updatedAt
+    id        String                @id @default(uuid())
+    paymentId String? // Reference to payment in payment service
+    eventType WebhookEventType
+    payload   Json
+    status    WebhookDeliveryStatus @default(PENDING)
+    createdAt DateTime              @default(now())
+    updatedAt DateTime              @updatedAt
 
     // Relations
-    paymentIntent PaymentIntent? @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
+    payment Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
 
-    @@index([paymentIntentId])
     @@index([status])
     @@index([eventType])
     @@index([createdAt])
@@ -119,15 +85,6 @@ model PaymentGatewayConfig {
 // ENUMS
 // =====================================
 
-enum PaymentIntentStatus {
-    PENDING // Created but not processed
-    PROCESSING // Currently being processed
-    SUCCEEDED // Successfully processed
-    FAILED // Processing failed
-    CANCELLED // Cancelled by user/system
-    REQUIRES_ACTION // Requires additional user action
-    REQUIRES_CONFIRMATION // Requires confirmation
-}
 
 enum PaymentStatus {
     PENDING

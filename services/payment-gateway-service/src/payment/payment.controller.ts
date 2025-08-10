@@ -3,6 +3,7 @@ import { MessagePattern, Payload } from '@nestjs/microservices';
 import { MICROSERVICES_MESSAGE_COMMANDS } from 'src/utilities/constant/microservice-constant';
 import type { PlanCreateInterface } from 'src/utilities/interfaces/plan-create-interface';
 import type { PlanUpdateInterface } from 'src/utilities/interfaces/plan-update-interface';
+import type { CreatePaymentIntentRequest } from 'src/utilities/interfaces/payment-intent.interface';
 import { PaymentService } from './payment.service';
 
 
@@ -19,7 +20,7 @@ export class PaymentController {
      * Called by user-subscription service to initiate payment
      */
     @MessagePattern(MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.CREATE_PAYMENT_INTENT)
-    async createPaymentIntent(@Payload() data: any): Promise<any> {
+    async createPaymentIntent(@Payload() data: CreatePaymentIntentRequest): Promise<any> {
         console.log('PaymentController: Creating payment intent:', data);
         return await this.paymentService.createPaymentIntent(data);
     }

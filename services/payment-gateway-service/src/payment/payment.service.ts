@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { PaymentStatus, Payment } from '@prisma/client';
 import DatabaseService from 'src/database/database.service';
 import { generatePlanId } from 'src/utilities/helpers/string-generator-helper';
+import { CreatePaymentIntentRequest } from 'src/utilities/interfaces/payment-intent.interface';
 import type { PlanCreateInterface } from 'src/utilities/interfaces/plan-create-interface';
 import type { PlanUpdateInterface } from 'src/utilities/interfaces/plan-update-interface';
 
@@ -14,31 +16,22 @@ export class PaymentService {
     // PAYMENT INTENT MANAGEMENT
     // =====================================
 
-    async createPaymentIntent(data: any): Promise<any> {
-        console.log('Creating payment intent via external gateway (Stripe/PayPal):', data);
-        
-        // Simulate payment intent creation
-        const paymentIntent = {
-            id: `pi_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            subscriptionId: data.subscriptionId,
-            userId: data.userId,
-            amount: data.amount,
-            currency: data.currency || 'USD',
-            status: 'requires_payment_method',
-            clientSecret: `pi_${Date.now()}_secret_${Math.random().toString(36).substr(2, 9)}`,
-            description: data.description || 'Subscription payment',
-            createdAt: new Date()
-        };
-
-        // In real implementation, this would call Stripe/PayPal API
-        // await stripeClient.paymentIntents.create(...)
-        
-        return paymentIntent;
+    async createPaymentIntent(data: CreatePaymentIntentRequest): Promise<Payment> {
+        const payment = await this.databaseService.payment.create({
+            data: {
+                amount: data.amount,
+                currency: data.currency || 'USD',
+                status: PaymentStatus.PENDING,
+                gatewayPaymentId: data.paymentId,
+            },
+        });
+        console.log('🔄 Creating payment intent:', data.subscriptionId, payment.id);
+        return payment;
     }
 
     async confirmPayment(data: any): Promise<any> {
         console.log('Confirming payment via external gateway (Stripe/PayPal):', data);
-        
+
         // Simulate payment confirmation
         const paymentResult = {
             paymentIntent: {
@@ -66,13 +59,13 @@ export class PaymentService {
 
         // In real implementation, this would call Stripe/PayPal API
         // await stripeClient.paymentIntents.confirm(...)
-        
+
         return paymentResult;
     }
 
     async processPayment(data: any): Promise<any> {
         console.log('Processing payment via external gateway (Stripe/PayPal):', data);
-        
+
         // Simulate payment processing
         const result = {
             paymentIntent: {
@@ -91,13 +84,13 @@ export class PaymentService {
 
         // In real implementation, this would call Stripe/PayPal API
         // await stripeClient.paymentIntents.retrieve(...)
-        
+
         return result;
     }
 
     async cancelPayment(data: any): Promise<any> {
         console.log('Cancelling payment via external gateway (Stripe/PayPal):', data);
-        
+
         // Simulate payment cancellation
         const result = {
             cancelled: true,
@@ -107,7 +100,7 @@ export class PaymentService {
 
         // In real implementation, this would call Stripe/PayPal API
         // await stripeClient.paymentIntents.cancel(...)
-        
+
         return result;
     }
 
@@ -123,7 +116,7 @@ export class PaymentService {
     }
 
     async updatePlan(planId: string, planData: PlanUpdateInterface): Promise<boolean> {
-        
+
         console.log('Updating plan via integration for example: Stripe, Paypal', planId, planData);
         // In a real implementation, this would update the plan in the external gateway
         return true; // Simulate success

@@ -211,14 +211,12 @@ if (!service || !environment || !command) {
     console.log('  migrate reset --force      - Reset database (development only)');
     console.log('  reset                      - Reset database with cleanup (development only)');
     console.log('  generate                   - Generate Prisma client');
-    console.log('  studio                     - Open Prisma Studio');
     console.log('  db seed                    - Run database seeds');
     console.log('');
     console.log('Examples:');
     console.log('  node scripts/prisma-runner.js user-subscription-service development migrate dev --name init');
     console.log('  node scripts/prisma-runner.js payment-gateway-service development generate');
     console.log('  node scripts/prisma-runner.js user-subscription-service development reset');
-    console.log('  node scripts/prisma-runner.js user-subscription-service development studio');
     process.exit(1);
 }
 

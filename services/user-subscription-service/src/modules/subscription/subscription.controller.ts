@@ -7,13 +7,11 @@ import { Authorized } from 'src/core/decorators/authorize.decorator';
 import { BaseResponseDto } from 'src/utilities/swagger-responses/base-response';
 import {
     BillingHistoryResponseDto,
-    PaymentInitiationResponseDto,
     SubscriptionResponseDto,
     SubscriptionWithPlanResponseDto
 } from './dto/subscription-response.dto';
 import {
-    CreateSubscriptionRequestDTO,
-    UpgradeSubscriptionRequestDTO
+    CreateSubscriptionRequestDTO
 } from './dto/subscription.dto';
 import { ProcessWebhookDTO } from './dto/webhook.dto';
 import WebhookService from './providers/webhook.service';
@@ -40,7 +38,7 @@ export default class SubscriptionController {
     async createSubscription(
         @AuthUser() user: User,
         @Body() data: CreateSubscriptionRequestDTO,
-    ): Promise<BaseResponseDto<PaymentInitiationResponseDto>> {
+    ): Promise<BaseResponseDto<SubscriptionResponseDto>> {
         return this._subscriptionService.createSubscription(user.id, data);
     }
 
@@ -84,22 +82,6 @@ export default class SubscriptionController {
     ): Promise<BaseResponseDto<SubscriptionResponseDto>> {
         return this._subscriptionService.cancelSubscription(user.id, subscriptionId);
     }
-
-    // @Post('/:subscriptionId/upgrade')
-    // @Authorized()
-    // @ApiParam({ name: 'subscriptionId', description: 'Subscription ID' })
-    // @ApiResponse({
-    //     status: HttpStatus.OK,
-    //     type: BaseResponseDto,
-    //     description: 'Successfully upgraded subscription'
-    // })
-    // async upgradeSubscription(
-    //     @AuthUser() user: User,
-    //     @Param('subscriptionId') subscriptionId: string,
-    //     @Body() data: UpgradeSubscriptionRequestDTO,
-    // ): Promise<BaseResponseDto<PaymentInitiationResponseDto>> {
-    //     return this._subscriptionService.upgradeSubscription(user.id, subscriptionId, data);
-    // }
 
     // =====================================
     // BILLING & REPORTING

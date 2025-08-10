@@ -12,13 +12,13 @@ export class CreateSubscriptionRequestDTO {
     planId: string;
 
     @ApiProperty({
-        example: 'tok_visa',
-        description: 'Payment method token from the payment gateway'
+        example: 'e3b8f8a2-4b8c-4a5d-9b2a-8c7e5f3a9b1d',
+        description: 'Payment method ID to use for the subscription'
     })
     @IsDefined()
     @IsString()
     @IsUUID()
-    cardToken: string;
+    paymentId: string;
 
 }
 

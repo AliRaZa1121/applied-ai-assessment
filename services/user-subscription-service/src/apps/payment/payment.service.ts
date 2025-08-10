@@ -1,17 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { MICROSERVICES, MICROSERVICES_MESSAGE_COMMANDS } from 'src/utilities/constant/microservice-constant';
+import { CreatePaymentIntentRequest } from 'src/utilities/interfaces/payments/payment-intent.interface';
 import { PlanCreateInterface } from 'src/utilities/interfaces/payments/plan-create-interface';
 import { PlanUpdateInterface } from 'src/utilities/interfaces/payments/plan-update-interface';
 
-export interface CreatePaymentIntentRequest {
-    subscriptionId: string;
-    userId: string;
-    amount: number;
-    cardToken: string;
-    currency?: string;
-    description?: string;
-}
 
 export interface ConfirmPaymentRequest {
     paymentIntentId: string;
@@ -54,21 +47,9 @@ export class PaymentService {
      * Create payment intent for subscription
      * Used when user creates a new subscription or upgrades
      */
-    async createPaymentIntent(data: CreatePaymentIntentRequest): Promise<PaymentIntentResponse> {
+    async createPaymentIntent(data: CreatePaymentIntentRequest): Promise<void> {
         console.log('🔄 Creating payment intent via RabbitMQ:', data.subscriptionId);
-
-        try {
-            const result = await this.client.send<PaymentIntentResponse>(
-                MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.CREATE_PAYMENT_INTENT,
-                data
-            ).toPromise();
-
-            console.log('✅ Payment intent created:', result?.id);
-            return result!;
-        } catch (error) {
-            console.error('❌ Error creating payment intent:', error);
-            throw error;
-        }
+        this.client.emit(MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.CREATE_PAYMENT_INTENT, data);
     }
 
     /**

@@ -142,32 +142,3 @@ export class BillingHistoryResponseDto {
     updatedAt: Date;
 }
 
-
-export class PaymentInitiationResponseDto {
-    @ApiProperty({
-        example: 'sub_123',
-        description: 'Subscription identifier'
-    })
-    subscriptionId: string;
-
-    @ApiProperty({
-        example: 'payment_required',
-        description: 'Payment status',
-        enum: ['payment_required', 'payment_processing']
-    })
-    status: string;
-
-    @ApiProperty({
-        example: 'https://payment-service.com/payment/process?subscriptionId=sub_123&amount=2999',
-        description: 'URL to initiate payment',
-        nullable: true
-    })
-    paymentUrl: string | null;
-
-    @ApiProperty({
-        example: 'payment_1691489400_sub_123',
-        description: 'Unique payment identifier',
-        nullable: true
-    })
-    paymentId: string | null;
-}

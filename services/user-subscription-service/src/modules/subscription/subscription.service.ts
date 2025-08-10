@@ -6,7 +6,6 @@ import { successApiWrapper } from 'src/utilities/constant/response-constant';
 import { BaseResponseDto } from 'src/utilities/swagger-responses/base-response';
 import {
     BillingHistoryResponseDto,
-    PaymentInitiationResponseDto,
     SubscriptionResponseDto,
     SubscriptionWithPlanResponseDto
 } from './dto/subscription-response.dto';
@@ -30,8 +29,10 @@ export default class SubscriptionService {
     async createSubscription(
         userId: string,
         data: CreateSubscriptionRequestDTO
-    ): Promise<BaseResponseDto<PaymentInitiationResponseDto>> {
+    ): Promise<BaseResponseDto<SubscriptionResponseDto>> {
         try {
+            const { planId, paymentId } = data;
+
             // Check if user exists and doesn't have an active subscription
             const existingSubscription = await this._databaseService.subscription.findFirst({
                 where: {
@@ -81,25 +82,33 @@ export default class SubscriptionService {
                 }
             });
 
-            // Create payment intent for immediate payment
-            const paymentIntent = await this._paymentService.createPaymentIntent({
-                subscriptionId: subscription.id,
-                userId,
-                cardToken: data.cardToken,
-                amount: plan.price,
-                currency: 'USD',
-                description: `Subscription to ${plan.name} plan (Card: ${data.cardToken})`
+            // Billing history record for subscription creation
+            await this._databaseService.billingHistory.create({
+                data: {
+                    subscriptionId: subscription.id,
+                    amount: plan.price,
+                    currency: 'USD',
+                    gatewayPaymentId: paymentId,
+                    status: BillingStatus.PENDING,
+                    description: `Subscription to ${plan.name} plan`,
+                    billingDate: new Date(),
+                }
             });
 
-            const paymentInitiation: PaymentInitiationResponseDto = {
+
+
+            // Initiate payment intent with payment gateway service
+            this._paymentService.createPaymentIntent({
                 subscriptionId: subscription.id,
-                status: 'payment_required',
-                paymentUrl: paymentIntent.clientSecret ? `https://checkout.stripe.com/pay/${paymentIntent.clientSecret}` : null,
-                paymentId: paymentIntent.id
-            };
+                userId,
+                paymentId: paymentId,
+                amount: plan.price,
+                currency: 'USD',
+                description: `Subscription to ${plan.name} plan (Payment ID: ${paymentId})`
+            });
 
             return successApiWrapper(
-                paymentInitiation,
+                subscription,
                 'Subscription created successfully',
                 HttpStatus.CREATED
             );
@@ -196,78 +205,6 @@ export default class SubscriptionService {
         );
 
     }
-
-    // async upgradeSubscription(
-    //     userId: string,
-    //     subscriptionId: string,
-    //     data: UpgradeSubscriptionRequestDTO
-    // ): Promise<BaseResponseDto<PaymentInitiationResponseDto>> {
-    //     try {
-
-    //         const subscription = await this._databaseService.subscription.findFirst({
-    //             where: {
-    //                 id: subscriptionId,
-    //                 userId
-    //             },
-    //             include: { plan: true }
-    //         });
-
-    //         if (!subscription) {
-    //             throw new NotFoundException('Subscription not found');
-    //         }
-
-    //         if (subscription.status !== SubscriptionStatus.ACTIVE) {
-    //             throw new BadRequestException('Only active subscriptions can be upgraded');
-    //         }
-
-    //         const newPlan = await this._databaseService.plan.findUnique({
-    //             where: { id: data.newPlanId }
-    //         });
-
-    //         if (!newPlan || !newPlan.isActive) {
-    //             throw new BadRequestException('Invalid or inactive plan');
-    //         }
-
-    //         if (newPlan.price <= subscription.plan.price) {
-    //             throw new BadRequestException('New plan must have a higher price for upgrade');
-    //         }
-
-    //         // Create payment intent for upgrade with payment gateway service
-    //         const upgradeDifference = newPlan.price - subscription.plan.price;
-    //         const paymentIntent = await this._paymentService.createPaymentIntent({
-    //             subscriptionId: subscription.id,
-    //             userId,
-
-    //             amount: upgradeDifference,
-    //             currency: 'USD',
-    //             description: `Upgrade from ${subscription.plan.name} to ${newPlan.name} plan`
-    //         });
-
-    //         const paymentInitiation: PaymentInitiationResponseDto = {
-    //             subscriptionId: subscription.id,
-    //             status: paymentIntent.status === 'requires_payment_method' ? 'payment_required' : 'payment_processing',
-    //             paymentUrl: paymentIntent.clientSecret ? `https://checkout.stripe.com/pay/${paymentIntent.clientSecret}` : null,
-    //             paymentId: paymentIntent.id
-    //         };
-
-    //         await this._databaseService.subscription.update({
-    //             where: { id: subscriptionId },
-    //             data: {
-    //                 planId: data.newPlanId,
-    //                 status: SubscriptionStatus.PENDING, // Will be activated after payment
-    //             }
-    //         });
-
-    //         return successApiWrapper(
-    //             paymentInitiation,
-    //             'Subscription upgrade initiated successfully',
-    //             HttpStatus.OK
-    //         );
-    //     } catch (error) {
-    //         if (error instanceof NotFoundException || error instanceof BadRequestException) throw error;
-    //         throw new BadRequestException('Failed to upgrade subscription');
-    //     }
-    // }
 
     // =====================================
     // BILLING HISTORY & STATISTICS
