@@ -14,7 +14,7 @@ export class PlanController {
     constructor(private _planService: PlanService) { }
 
     @Post('/')
-    @Authorized()
+    // @Authorized()
     @ApiResponse({
         status: HttpStatus.CREATED,
         description: 'Plan created successfully',
@@ -52,7 +52,7 @@ export class PlanController {
     }
 
     @Put('/:planId')
-    @Authorized()
+    // @Authorized()
     @ApiParam({ name: 'planId', description: 'Plan ID', example: 'e4c8f8a2-4b8c-4a5d-9b2a-8c7e5f3a9b1c' })
     @ApiResponse({
         status: HttpStatus.OK,
@@ -67,7 +67,7 @@ export class PlanController {
     }
 
     @Delete('/:planId')
-    @Authorized()
+    // @Authorized()
     @ApiParam({ name: 'planId', description: 'Plan ID', example: 'e4c8f8a2-4b8c-4a5d-9b2a-8c7e5f3a9b1c' })
     @ApiResponse({
         status: HttpStatus.OK,

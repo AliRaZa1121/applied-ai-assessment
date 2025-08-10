@@ -1,6 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { MICROSERVICES, MICROSERVICES_MESSAGE_COMMANDS } from 'src/utilities/constant/microservice-constant';
+import { PlanCreateInterface } from 'src/utilities/interfaces/payments/plan-create-interface';
+import { PlanUpdateInterface } from 'src/utilities/interfaces/payments/plan-update-interface';
 
 export interface CreatePaymentIntentRequest {
     subscriptionId: string;
@@ -167,7 +169,7 @@ export class PaymentService {
     // PLAN MANAGEMENT
     // =====================================
 
-    async createPlan(data: any): Promise<string> {
+    async createPlan(data: PlanCreateInterface): Promise<string> {
         console.log('🔄 Creating plan via RabbitMQ:', data.name);
 
         const result: string = await this.client.send<any>(
@@ -182,12 +184,14 @@ export class PaymentService {
     }
 
 
-    async updatePlan(planId: string, data: any): Promise<boolean> {
+    async updatePlan(data: PlanUpdateInterface): Promise<boolean> {
+        const { planId } = data;
+        
         console.log('🔄 Updating plan via RabbitMQ:', planId);
 
         const result: boolean = await this.client.send<any>(
             MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.UPDATE_PLAN,
-            { planId, ...data }
+            data
         ).toPromise();
 
         console.log('✅ Plan updated:', planId);

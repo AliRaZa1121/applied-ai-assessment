@@ -28,34 +28,57 @@ export class PlanService {
 
         // db transaction to ensure atomicity
         const plan = await this._databaseService.$transaction(async (prisma) => {
-            // Create plan in the database
-            const newPlan = await prisma.plan.create({
-                data: {
-                    name: data.name,
-                    description: data.description,
-                    price: data.price,
-                    currency: data.currency,
-                    billingInterval: data.billingInterval,
-                    features: data.features,
-                    isActive: data.isActive,
+            try {
+                // Create plan in the database
+                const newPlan = await prisma.plan.create({
+                    data: {
+                        name: data.name,
+                        description: data.description,
+                        price: data.price,
+                        currency: data.currency,
+                        billingInterval: data.billingInterval,
+                        features: data.features,
+                        isActive: data.isActive,
+                    }
+                });
+
+                console.log('✅ Plan created in database:', newPlan.id);
+
+                // Create plan in the payment gateway
+                console.log('🔄 Creating plan in payment gateway...');
+                let gatewayPlanId: string;
+
+                try {
+
+                    gatewayPlanId = await this._paymentService.createPlan({
+                        name: newPlan.name,
+                        price: newPlan.price,
+                        currency: newPlan.currency,
+                        billingInterval: newPlan.billingInterval,
+                    });
+
+                    console.log('✅ Plan created in payment gateway:', gatewayPlanId);
+                } catch (gatewayError) {
+                    console.error('❌ Failed to create plan in payment gateway:', gatewayError);
+
+                    // The transaction will automatically rollback the database plan creation
+                    // because we're throwing an error inside the transaction
+                    throw new Error(`Failed to create plan in payment gateway: ${gatewayError.message || gatewayError}`);
                 }
-            });
 
-            // Create plan in the payment gateway
-            const gatewayPlanId = await this._paymentService.createPlan({
-                name: newPlan.name,
-                description: newPlan.description,
-                price: newPlan.price,
-                currency: newPlan.currency,
-                billingInterval: newPlan.billingInterval,
-                features: newPlan.features
-            });
+                // Update the plan with the gateway ID
+                const updatedPlan = await prisma.plan.update({
+                    where: { id: newPlan.id },
+                    data: { gatewayPlanId }
+                });
 
-            // Update the plan with the gateway ID
-            return prisma.plan.update({
-                where: { id: newPlan.id },
-                data: { gatewayPlanId }
-            });
+                console.log('✅ Plan creation completed successfully');
+                return updatedPlan;
+
+            } catch (error) {
+                console.error('❌ Plan creation failed, transaction will rollback:', error);
+                throw error; // This will cause the transaction to rollback
+            }
         });
 
         return successApiWrapper(
@@ -171,16 +194,57 @@ export class PlanService {
             }
         }
 
-        const updatedPlan = await this._databaseService.plan.update({
-            where: { id: planId },
-            data: {
-                ...(data.name && { name: data.name }),
-                ...(data.description !== undefined && { description: data.description }),
-                ...(data.price !== undefined && { price: data.price }),
-                ...(data.currency && { currency: data.currency }),
-                ...(data.billingInterval && { billingInterval: data.billingInterval }),
-                ...(data.features && { features: data.features }),
-                ...(data.isActive !== undefined && { isActive: data.isActive }),
+        // db transaction to ensure atomicity
+        const updatedPlan = await this._databaseService.$transaction(async (prisma) => {
+            try {
+                // Update plan in the database
+                const planInDb = await prisma.plan.update({
+                    where: { id: planId },
+                    data: {
+                        ...(data.name && { name: data.name }),
+                        ...(data.description !== undefined && { description: data.description }),
+                        ...(data.price !== undefined && { price: data.price }),
+                        ...(data.currency && { currency: data.currency }),
+                        ...(data.billingInterval && { billingInterval: data.billingInterval }),
+                        ...(data.features && { features: data.features }),
+                        ...(data.isActive !== undefined && { isActive: data.isActive }),
+                    }
+                });
+
+                console.log('✅ Plan updated in database:', planInDb.id);
+
+                // Update plan in the payment gateway if gatewayPlanId exists
+                if (existingPlan.gatewayPlanId) {
+                    console.log('🔄 Updating plan in payment gateway...');
+                    
+                    try {
+                        const gatewaySuccess = await this._paymentService.updatePlan({
+                            name: planInDb.name,
+                            description: planInDb.description || undefined,
+                            price: planInDb.price,
+                            currency: planInDb.currency,
+                            billingInterval: planInDb.billingInterval,
+                            planId: existingPlan.gatewayPlanId
+                        });
+
+                        console.log('✅ Plan updated in payment gateway:', gatewaySuccess);
+                    } catch (gatewayError) {
+                        console.error('❌ Failed to update plan in payment gateway:', gatewayError);
+                        
+                        // The transaction will automatically rollback the database plan update
+                        // because we're throwing an error inside the transaction
+                        throw new Error(`Failed to update plan in payment gateway: ${gatewayError.message || gatewayError}`);
+                    }
+                } else {
+                    console.log('⚠️ No gatewayPlanId found, skipping payment gateway update');
+                }
+
+                console.log('✅ Plan update completed successfully');
+                return planInDb;
+
+            } catch (error) {
+                console.error('❌ Plan update failed, transaction will rollback:', error);
+                throw error; // This will cause the transaction to rollback
             }
         });
 
@@ -218,8 +282,39 @@ export class PlanService {
             throw new BadRequestException('Cannot delete plan with active subscriptions');
         }
 
-        await this._databaseService.plan.delete({
-            where: { id: planId }
+        // db transaction to ensure atomicity
+        await this._databaseService.$transaction(async (prisma) => {
+            try {
+                // Delete plan from the payment gateway first if gatewayPlanId exists
+                if (existingPlan.gatewayPlanId) {
+                    console.log('🔄 Deleting plan from payment gateway...');
+                    
+                    try {
+                        const gatewaySuccess = await this._paymentService.deletePlan(existingPlan.gatewayPlanId);
+                        console.log('✅ Plan deleted from payment gateway:', gatewaySuccess);
+                    } catch (gatewayError) {
+                        console.error('❌ Failed to delete plan from payment gateway:', gatewayError);
+                        
+                        // The transaction will automatically rollback the database plan deletion
+                        // because we're throwing an error inside the transaction
+                        throw new Error(`Failed to delete plan from payment gateway: ${gatewayError.message || gatewayError}`);
+                    }
+                } else {
+                    console.log('⚠️ No gatewayPlanId found, skipping payment gateway deletion');
+                }
+
+                // Delete plan from the database
+                await prisma.plan.delete({
+                    where: { id: planId }
+                });
+
+                console.log('✅ Plan deleted from database:', planId);
+                console.log('✅ Plan deletion completed successfully');
+
+            } catch (error) {
+                console.error('❌ Plan deletion failed, transaction will rollback:', error);
+                throw error; // This will cause the transaction to rollback
+            }
         });
 
         return successApiWrapper(

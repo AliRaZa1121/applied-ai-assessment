@@ -10,6 +10,49 @@ import { PaymentService } from './payment.service';
 export class PaymentController {
     constructor(private readonly paymentService: PaymentService) { }
 
+    // =====================================
+    // PAYMENT INTENT MANAGEMENT
+    // =====================================
+
+    /**
+     * Create a payment intent
+     * Called by user-subscription service to initiate payment
+     */
+    @MessagePattern(MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.CREATE_PAYMENT_INTENT)
+    async createPaymentIntent(@Payload() data: any): Promise<any> {
+        console.log('PaymentController: Creating payment intent:', data);
+        return await this.paymentService.createPaymentIntent(data);
+    }
+
+    /**
+     * Confirm a payment
+     * Called by user-subscription service to process payment
+     */
+    @MessagePattern(MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.CONFIRM_PAYMENT)
+    async confirmPayment(@Payload() data: any): Promise<any> {
+        console.log('PaymentController: Confirming payment:', data);
+        return await this.paymentService.confirmPayment(data);
+    }
+
+    /**
+     * Process a payment
+     * Called by user-subscription service for automatic processing
+     */
+    @MessagePattern(MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.PROCESS_PAYMENT)
+    async processPayment(@Payload() data: any): Promise<any> {
+        console.log('PaymentController: Processing payment:', data);
+        return await this.paymentService.processPayment(data);
+    }
+
+    /**
+     * Cancel a payment
+     * Called by user-subscription service to cancel payment
+     */
+    @MessagePattern(MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.CANCEL_PAYMENT)
+    async cancelPayment(@Payload() data: any): Promise<any> {
+        console.log('PaymentController: Cancelling payment:', data);
+        return await this.paymentService.cancelPayment(data);
+    }
 
     // =====================================
     // PLAN MANAGEMENT
@@ -30,9 +73,9 @@ export class PaymentController {
      * Called by user-subscription service to update a subscription plan
      */
     @MessagePattern(MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.UPDATE_PLAN)
-    async updatePlan(planId: string, planData: PlanUpdateInterface): Promise<boolean> {
-        console.log('PaymentController: Updating plan:', planId, planData);
-        return await this.paymentService.updatePlan(planId, planData);
+    async updatePlan(@Payload() data:  PlanUpdateInterface): Promise<boolean> {
+        const { planId } = data; 
+        return await this.paymentService.updatePlan(planId, data);
     }
 
     /**

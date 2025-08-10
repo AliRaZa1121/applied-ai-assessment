@@ -11,6 +11,107 @@ export class PaymentService {
     ) { }
 
     // =====================================
+    // PAYMENT INTENT MANAGEMENT
+    // =====================================
+
+    async createPaymentIntent(data: any): Promise<any> {
+        console.log('Creating payment intent via external gateway (Stripe/PayPal):', data);
+        
+        // Simulate payment intent creation
+        const paymentIntent = {
+            id: `pi_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            subscriptionId: data.subscriptionId,
+            userId: data.userId,
+            amount: data.amount,
+            currency: data.currency || 'USD',
+            status: 'requires_payment_method',
+            clientSecret: `pi_${Date.now()}_secret_${Math.random().toString(36).substr(2, 9)}`,
+            description: data.description || 'Subscription payment',
+            createdAt: new Date()
+        };
+
+        // In real implementation, this would call Stripe/PayPal API
+        // await stripeClient.paymentIntents.create(...)
+        
+        return paymentIntent;
+    }
+
+    async confirmPayment(data: any): Promise<any> {
+        console.log('Confirming payment via external gateway (Stripe/PayPal):', data);
+        
+        // Simulate payment confirmation
+        const paymentResult = {
+            paymentIntent: {
+                id: data.paymentIntentId,
+                status: data.simulateSuccess !== false ? 'succeeded' : 'failed',
+                amount: 1000, // This would come from the actual payment intent
+                currency: 'USD'
+            },
+            payment: {
+                id: `py_${Date.now()}`,
+                amount: 1000,
+                status: data.simulateSuccess !== false ? 'succeeded' : 'failed'
+            },
+            webhookDelivered: true,
+            simulation: {
+                success: data.simulateSuccess !== false,
+                processingTime: Math.floor(Math.random() * 3000) + 1000,
+                gatewayResponse: {
+                    gateway: 'simulated',
+                    transactionId: `txn_${Date.now()}`,
+                    processingTime: new Date().toISOString()
+                }
+            }
+        };
+
+        // In real implementation, this would call Stripe/PayPal API
+        // await stripeClient.paymentIntents.confirm(...)
+        
+        return paymentResult;
+    }
+
+    async processPayment(data: any): Promise<any> {
+        console.log('Processing payment via external gateway (Stripe/PayPal):', data);
+        
+        // Simulate payment processing
+        const result = {
+            paymentIntent: {
+                id: data.paymentIntentId,
+                status: data.shouldSucceed ? 'succeeded' : 'failed'
+            },
+            simulation: {
+                success: data.shouldSucceed,
+                processingTime: Math.floor(Math.random() * 2000) + 500,
+                gatewayResponse: {
+                    gateway: 'simulated',
+                    result: data.shouldSucceed ? 'success' : 'declined'
+                }
+            }
+        };
+
+        // In real implementation, this would call Stripe/PayPal API
+        // await stripeClient.paymentIntents.retrieve(...)
+        
+        return result;
+    }
+
+    async cancelPayment(data: any): Promise<any> {
+        console.log('Cancelling payment via external gateway (Stripe/PayPal):', data);
+        
+        // Simulate payment cancellation
+        const result = {
+            cancelled: true,
+            paymentIntentId: data.paymentIntentId,
+            cancelledAt: new Date()
+        };
+
+        // In real implementation, this would call Stripe/PayPal API
+        // await stripeClient.paymentIntents.cancel(...)
+        
+        return result;
+    }
+
+    // =====================================
     // PLAN MANAGEMENT
     // =====================================
 
