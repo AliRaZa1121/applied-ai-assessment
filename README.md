@@ -140,7 +140,7 @@ You can connect to the databases locally via:
 Example:
 
 ```bash
-psql -h localhost -p 5433 -U postgres -d user_subscription_db
+docker compose exec postgres-user psql -U postgres -d user_subscription_db
 ```
 
 ---
