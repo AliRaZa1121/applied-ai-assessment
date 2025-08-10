@@ -1,16 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import { PaymentStatus, Payment } from '@prisma/client';
+import { Payment, PaymentStatus } from '@prisma/client';
 import DatabaseService from 'src/database/database.service';
 import { generatePlanId } from 'src/utilities/helpers/string-generator-helper';
+import { generateDummyWebhookData } from 'src/utilities/helpers/webhook-generator.helper';
 import { CreatePaymentIntentRequest } from 'src/utilities/interfaces/payment-intent.interface';
 import type { PlanCreateInterface } from 'src/utilities/interfaces/plan-create-interface';
 import type { PlanUpdateInterface } from 'src/utilities/interfaces/plan-update-interface';
+import { UserSubscriptionService } from '../apps/user-subscription/user-subscription.service';
 
 @Injectable()
 export class PaymentService {
     constructor(
         private readonly databaseService: DatabaseService,
-    ) { }
+        private readonly userSubscriptionService: UserSubscriptionService, 
+        ) { }
 
     // =====================================
     // PAYMENT INTENT MANAGEMENT
@@ -26,82 +29,16 @@ export class PaymentService {
             },
         });
         console.log('🔄 Creating payment intent:', data.subscriptionId, payment.id);
+
+        setTimeout(() => {
+            // Simulate payment intent creation delay
+            console.log('🔄 Payment intent created successfully:', payment.id)
+            
+            const dummyWebhook = generateDummyWebhookData(payment.id, data.amount, data.currency || 'USD');
+            this.userSubscriptionService.createSubscription(dummyWebhook);
+        }, 3000);
+
         return payment;
-    }
-
-    async confirmPayment(data: any): Promise<any> {
-        console.log('Confirming payment via external gateway (Stripe/PayPal):', data);
-
-        // Simulate payment confirmation
-        const paymentResult = {
-            paymentIntent: {
-                id: data.paymentIntentId,
-                status: data.simulateSuccess !== false ? 'succeeded' : 'failed',
-                amount: 1000, // This would come from the actual payment intent
-                currency: 'USD'
-            },
-            payment: {
-                id: `py_${Date.now()}`,
-                amount: 1000,
-                status: data.simulateSuccess !== false ? 'succeeded' : 'failed'
-            },
-            webhookDelivered: true,
-            simulation: {
-                success: data.simulateSuccess !== false,
-                processingTime: Math.floor(Math.random() * 3000) + 1000,
-                gatewayResponse: {
-                    gateway: 'simulated',
-                    transactionId: `txn_${Date.now()}`,
-                    processingTime: new Date().toISOString()
-                }
-            }
-        };
-
-        // In real implementation, this would call Stripe/PayPal API
-        // await stripeClient.paymentIntents.confirm(...)
-
-        return paymentResult;
-    }
-
-    async processPayment(data: any): Promise<any> {
-        console.log('Processing payment via external gateway (Stripe/PayPal):', data);
-
-        // Simulate payment processing
-        const result = {
-            paymentIntent: {
-                id: data.paymentIntentId,
-                status: data.shouldSucceed ? 'succeeded' : 'failed'
-            },
-            simulation: {
-                success: data.shouldSucceed,
-                processingTime: Math.floor(Math.random() * 2000) + 500,
-                gatewayResponse: {
-                    gateway: 'simulated',
-                    result: data.shouldSucceed ? 'success' : 'declined'
-                }
-            }
-        };
-
-        // In real implementation, this would call Stripe/PayPal API
-        // await stripeClient.paymentIntents.retrieve(...)
-
-        return result;
-    }
-
-    async cancelPayment(data: any): Promise<any> {
-        console.log('Cancelling payment via external gateway (Stripe/PayPal):', data);
-
-        // Simulate payment cancellation
-        const result = {
-            cancelled: true,
-            paymentIntentId: data.paymentIntentId,
-            cancelledAt: new Date()
-        };
-
-        // In real implementation, this would call Stripe/PayPal API
-        // await stripeClient.paymentIntents.cancel(...)
-
-        return result;
     }
 
     // =====================================

@@ -17,5 +17,10 @@ export const MICROSERVICES_MESSAGE_COMMANDS = {
         CREATE_PLAN: 'payment_service_create_plan',
         UPDATE_PLAN: 'payment_service_update_plan',
         DELETE_PLAN: 'payment_service_delete_plan',
+    },
+    USER_SUBSCRIPTION_SERVICE: {
+        CREATE_SUBSCRIPTION: 'user_subscription_service_create_subscription',
+        UPDATE_SUBSCRIPTION: 'user_subscription_service_update_subscription',   
+        CANCEL_SUBSCRIPTION: 'user_subscription_service_cancel_subscription',
     }
 };

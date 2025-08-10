@@ -1,9 +1,12 @@
 import { Body, Get, HttpStatus, Param, Post, Query } from '@nestjs/common';
+import { MessagePattern, Payload } from '@nestjs/microservices';
 import { ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { User } from '@prisma/client';
 import { ApiRouting } from 'src/core/decorators/api-controller.decorator';
 import { AuthUser } from 'src/core/decorators/auth-user.decorator';
 import { Authorized } from 'src/core/decorators/authorize.decorator';
+import { MICROSERVICES_MESSAGE_COMMANDS } from 'src/utilities/constant/microservice-constant';
+import { DummyWebhookData } from 'src/utilities/interfaces/webhook-interface';
 import { BaseResponseDto } from 'src/utilities/swagger-responses/base-response';
 import {
     BillingHistoryResponseDto,
@@ -13,7 +16,6 @@ import {
 import {
     CreateSubscriptionRequestDTO
 } from './dto/subscription.dto';
-import { ProcessWebhookDTO } from './dto/webhook.dto';
 import WebhookService from './providers/webhook.service';
 import SubscriptionService from './subscription.service';
 
@@ -106,15 +108,18 @@ export default class SubscriptionController {
     // WEBHOOK HANDLING
     // =====================================
 
-    @Post('/webhook')
-    @ApiResponse({
-        status: HttpStatus.OK,
-        type: BaseResponseDto,
-        description: 'Successfully processed webhook'
-    })
-    async processWebhook(
-        @Body() data: ProcessWebhookDTO,
-    ): Promise<BaseResponseDto<void>> {
-        return this._subscriptionService.processWebhook(data);
+    @MessagePattern(MICROSERVICES_MESSAGE_COMMANDS.USER_SUBSCRIPTION_SERVICE.CREATE_SUBSCRIPTION)
+    async createSubscriptionHandler(@Payload() data: DummyWebhookData): Promise<any> {
+        return await this._webhookService.createSubscriptionHandler(data);
+    }
+
+    @MessagePattern(MICROSERVICES_MESSAGE_COMMANDS.USER_SUBSCRIPTION_SERVICE.UPDATE_SUBSCRIPTION)
+    async updateSubscriptionHandler(@Payload() data: DummyWebhookData): Promise<any> {
+        return await this._webhookService.updateSubscriptionHandler(data);
+    }
+
+    @MessagePattern(MICROSERVICES_MESSAGE_COMMANDS.USER_SUBSCRIPTION_SERVICE.CANCEL_SUBSCRIPTION)
+    async cancelSubscriptionHandler(@Payload() data: DummyWebhookData): Promise<any> {
+        return await this._webhookService.cancelSubscriptionHandler(data);
     }
 }
