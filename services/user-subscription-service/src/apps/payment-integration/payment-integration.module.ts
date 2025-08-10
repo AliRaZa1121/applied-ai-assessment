@@ -1,6 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
-import { PaymentService } from './payment.service';
+import { PaymentIntegrationService } from './payment-integration.service';
 import { MICROSERVICES } from 'src/utilities/constant/microservice-constant';
 
 @Global()
@@ -20,7 +20,7 @@ import { MICROSERVICES } from 'src/utilities/constant/microservice-constant';
             },
         ]),
     ],
-    providers: [PaymentService],
-    exports: [PaymentService],
+    providers: [PaymentIntegrationService],
+    exports: [PaymentIntegrationService],
 })
-export class PaymentModule { }
+export class PaymentIntegrationModule { }

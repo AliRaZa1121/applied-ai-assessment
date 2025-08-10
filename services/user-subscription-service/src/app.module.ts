@@ -4,8 +4,8 @@ import { APP_FILTER } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { RedisModule } from './apps/cache/redis.module';
-import { NotificationModule } from './apps/notification/notification.module';
-import { PaymentModule } from './apps/payment/payment.module';
+import { NotificationIntegrationModule } from './apps/notification-integration/notification-integration.module';
+import { PaymentIntegrationModule } from './apps/payment-integration/payment-integration.module';
 import { HttpExceptionFilter } from './core/exceptions/http.exception';
 import { MicroserviceExceptionFilter } from './core/exceptions/RpcExceptionFilter';
 import DatabaseModule from './database/database.module';
@@ -27,8 +27,8 @@ import { TokenModule } from './modules/tokens/token.module';
     TokenModule,
     SubscriptionModule,
     PlanModule,
-    NotificationModule,
-    PaymentModule,
+    NotificationIntegrationModule,
+    PaymentIntegrationModule
   ],
   controllers: [AppController],
   providers: [

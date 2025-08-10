@@ -6,7 +6,8 @@ import { AppService } from './app.service';
 import { NotificationModule } from './apps/notification/notification.module';
 import { MicroserviceExceptionFilter } from './core/exceptions/RpcExceptionFilter';
 import DatabaseModule from './database/database.module';
-import { PaymentModule } from './payment/payment.module';
+import { PlanModule } from './plan/plan.module';
+import { SubscriptionModule } from './subscription/subscription.module';
 
 @Module({
   imports: [
@@ -16,7 +17,8 @@ import { PaymentModule } from './payment/payment.module';
       load: [],
     }),
     DatabaseModule,
-    PaymentModule,
+    PlanModule,
+    SubscriptionModule,
     NotificationModule
   ],
   controllers: [AppController],

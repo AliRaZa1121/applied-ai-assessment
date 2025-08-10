@@ -1,12 +1,10 @@
 import { Module } from '@nestjs/common';
-import { PaymentIntegrationModule } from 'src/apps/payment-integration/payment-integration.module';
 import { PlanController } from './plan.controller';
 import { PlanService } from './plan.service';
 
 @Module({
-    imports: [PaymentIntegrationModule],
     controllers: [PlanController],
     providers: [PlanService],
     exports: [PlanService],
 })
-export default class PlanModule { }
+export class PlanModule {}

@@ -9,7 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { TokenReason, TokenStatus, User } from '@prisma/client';
 import RedisService from 'src/apps/cache/redis.service';
-import { NotificationService } from 'src/apps/notification/notification.service';
+import { NotificationIntegrationService } from 'src/apps/notification-integration/notification-integration.service';
 import DatabaseService from 'src/database/database.service';
 import { ComparePassword, HashPassword } from 'src/helpers/hashing.helper';
 import {
@@ -34,7 +34,7 @@ export default class AuthService {
     private _jwtService: JwtService,
     private _configService: ConfigService,
     private _tokenService: TokenService,
-    private _notificationService: NotificationService,
+    private _notificationService: NotificationIntegrationService,
     private _redisCacheService: RedisService,
   ) { }
 

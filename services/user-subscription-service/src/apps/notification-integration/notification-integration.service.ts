@@ -3,8 +3,7 @@ import { ClientProxy } from '@nestjs/microservices';
 import { MICROSERVICES, MICROSERVICES_MESSAGE_COMMANDS } from 'src/utilities/constant/microservice-constant';
 
 @Injectable()
-export class NotificationService {
-
+export class NotificationIntegrationService {
     constructor(
         @Inject(MICROSERVICES.NOTIFICATION_SERVICE)
         private readonly client: ClientProxy,

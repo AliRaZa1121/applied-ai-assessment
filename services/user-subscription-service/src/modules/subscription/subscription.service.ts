@@ -1,6 +1,6 @@
 import { BadRequestException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { BillingInterval, BillingStatus, SubscriptionStatus } from '@prisma/client';
-import { PaymentService } from 'src/apps/payment/payment.service';
+import { PaymentIntegrationService } from 'src/apps/payment-integration/payment-integration.service';
 import DatabaseService from 'src/database/database.service';
 import { successApiWrapper } from 'src/utilities/constant/response-constant';
 import { BaseResponseDto } from 'src/utilities/swagger-responses/base-response';
@@ -18,7 +18,7 @@ import {
 export default class SubscriptionService {
     constructor(
         private readonly _databaseService: DatabaseService,
-        private readonly _paymentService: PaymentService
+        private readonly _paymentService: PaymentIntegrationService
     ) { }
 
     // =====================================

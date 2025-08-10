@@ -7,7 +7,6 @@ import { PlanCreateInterface } from 'src/utilities/interfaces/payments/plan-crea
 import { PlanUpdateInterface } from 'src/utilities/interfaces/payments/plan-update-interface';
 import { SubscriptionUpdateRequestDTO } from 'src/utilities/interfaces/payments/subscription-update.interface';
 
-
 export interface ConfirmPaymentRequest {
     paymentIntentId: string;
     paymentMethodToken?: string;
@@ -38,8 +37,7 @@ export interface PaymentProcessingResponse {
 }
 
 @Injectable()
-export class PaymentService {
-
+export class PaymentIntegrationService {
     constructor(
         @Inject(MICROSERVICES.PAYMENT_SERVICE)
         private readonly client: ClientProxy,
@@ -57,22 +55,13 @@ export class PaymentService {
         return result;
     }
 
-    /**
-     * Create payment intent for subscription
-     * Used when user creates a new subscription or upgrades
-     */
     async createPaymentIntent(data: CreatePaymentIntentRequest): Promise<void> {
         console.log('🔄 Creating payment intent via RabbitMQ:', data.subscriptionId);
         this.client.emit(MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.CREATE_PAYMENT_INTENT, data);
     }
-    
-    /**
-     * Update Subscription
-     * This method is used to update an existing subscription plan.
-     */
+
     async updateSubscription(data: SubscriptionUpdateRequestDTO): Promise<string> {
         console.log('🔄 Updating subscription via RabbitMQ:', data.subscriptionId);
-        // this.client.emit(MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.UPDATE_SUBSCRIPTION, data);
         const result: string = await firstValueFrom(
             this.client.send<string>(
                 MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.UPDATE_SUBSCRIPTION,
@@ -83,11 +72,6 @@ export class PaymentService {
         return result;
     }
 
-
-    /**
-     * Cancel Subscription
-     * This method is used to cancel an existing subscription.
-     */
     async cancelSubscription(userId: string): Promise<boolean> {
         console.log('🔄 Canceling subscription via RabbitMQ for user:', userId);
         const result: boolean = await firstValueFrom(
@@ -97,7 +81,7 @@ export class PaymentService {
             )
         );
         console.log('✅ Subscription canceled:', result);
-        return result;  
+        return result;
     }
 
 
@@ -108,10 +92,12 @@ export class PaymentService {
     async createPlan(data: PlanCreateInterface): Promise<string> {
         console.log('🔄 Creating plan via RabbitMQ:', data.name);
 
-        const result: string = await this.client.send<any>(
-            MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.CREATE_PLAN,
-            data
-        ).toPromise();
+        const result: string = await firstValueFrom(
+            this.client.send<string>(
+                MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.CREATE_PLAN,
+                data
+            )
+        );
 
         console.log('✅ Plan created:', result);
         return result;
@@ -122,13 +108,15 @@ export class PaymentService {
 
     async updatePlan(data: PlanUpdateInterface): Promise<boolean> {
         const { planId } = data;
-        
+
         console.log('🔄 Updating plan via RabbitMQ:', planId);
 
-        const result: boolean = await this.client.send<any>(
-            MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.UPDATE_PLAN,
-            data
-        ).toPromise();
+        const result: boolean = await firstValueFrom(
+            this.client.send<boolean>(
+                MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.UPDATE_PLAN,
+                data
+            )
+        );
 
         console.log('✅ Plan updated:', planId);
         return result;
@@ -136,13 +124,15 @@ export class PaymentService {
 
     async deletePlan(planId: string): Promise<boolean> {
         console.log('🔄 Deleting plan via RabbitMQ:', planId);
-        const result: boolean = await this.client.send<any>(
-            MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.DELETE_PLAN,
-            { planId }
-        ).toPromise();
+
+        const result: boolean = await firstValueFrom(
+            this.client.send<boolean>(
+                MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.DELETE_PLAN,
+                planId
+            )
+        );
 
         console.log('✅ Plan deleted:', planId);
         return result;
     }
-
 }

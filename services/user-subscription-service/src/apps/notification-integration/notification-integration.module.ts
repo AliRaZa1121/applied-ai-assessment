@@ -1,6 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
-import { NotificationService } from './notification.service';
+import { NotificationIntegrationService } from './notification-integration.service';
 import { MICROSERVICES } from 'src/utilities/constant/microservice-constant';
 
 @Global()
@@ -20,7 +20,7 @@ import { MICROSERVICES } from 'src/utilities/constant/microservice-constant';
             },
         ]),
     ],
-    providers: [NotificationService],
-    exports: [NotificationService],
+    providers: [NotificationIntegrationService],
+    exports: [NotificationIntegrationService],
 })
-export class NotificationModule { }
+export class NotificationIntegrationModule { }
