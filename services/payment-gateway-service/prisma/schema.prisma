@@ -54,42 +54,18 @@ model Payment {
     gatewayResponse  Json? // Full gateway response
     processingFee    Int? // Processing fee in cents
     netAmount        Int? // Net amount after fees
-    refundAmount     Int           @default(0)
     processedAt      DateTime?
     createdAt        DateTime      @default(now())
     updatedAt        DateTime      @updatedAt
 
     // Relations
     paymentIntent PaymentIntent @relation(fields: [paymentIntentId], references: [id], onDelete: Cascade)
-    refunds       Refund[]
 
     @@index([paymentIntentId])
     @@index([status])
     @@index([gatewayPaymentId])
     @@index([processedAt])
     @@map("payments")
-}
-
-model Refund {
-    id              String        @id @default(uuid())
-    paymentId       String
-    amount          Int // Refund amount in cents
-    currency        String        @default("USD")
-    status          RefundStatus  @default(PENDING)
-    reason          RefundReason?
-    gatewayRefundId String? // External refund ID
-    gatewayResponse Json? // Full gateway response
-    processedAt     DateTime?
-    createdAt       DateTime      @default(now())
-    updatedAt       DateTime      @updatedAt
-
-    // Relations
-    payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-
-    @@index([paymentId])
-    @@index([status])
-    @@index([gatewayRefundId])
-    @@map("refunds")
 }
 
 // =====================================
@@ -100,17 +76,8 @@ model WebhookDelivery {
     id               String                @id @default(uuid())
     paymentIntentId  String?
     eventType        WebhookEventType
-    webhookUrl       String
     payload          Json
-    headers          Json?
-    httpStatus       Int?
-    response         String?
-    deliveryAttempts Int                   @default(0)
-    maxRetries       Int                   @default(3)
     status           WebhookDeliveryStatus @default(PENDING)
-    nextRetryAt      DateTime?
-    lastAttemptAt    DateTime?
-    deliveredAt      DateTime?
     createdAt        DateTime              @default(now())
     updatedAt        DateTime              @updatedAt
 
@@ -120,7 +87,6 @@ model WebhookDelivery {
     @@index([paymentIntentId])
     @@index([status])
     @@index([eventType])
-    @@index([nextRetryAt])
     @@index([createdAt])
     @@map("webhook_deliveries")
 }
@@ -169,24 +135,6 @@ enum PaymentStatus {
     SUCCEEDED
     FAILED
     CANCELLED
-    REFUNDED
-    PARTIALLY_REFUNDED
-}
-
-enum RefundStatus {
-    PENDING
-    PROCESSING
-    SUCCEEDED
-    FAILED
-    CANCELLED
-}
-
-enum RefundReason {
-    REQUESTED_BY_CUSTOMER
-    DUPLICATE
-    FRAUDULENT
-    SUBSCRIPTION_CANCELLED
-    OTHER
 }
 
 enum PaymentMethod {
@@ -212,9 +160,6 @@ enum WebhookEventType {
     PAYMENT_INTENT_CANCELLED
     PAYMENT_SUCCEEDED
     PAYMENT_FAILED
-    REFUND_CREATED
-    REFUND_SUCCEEDED
-    REFUND_FAILED
 }
 
 enum WebhookDeliveryStatus {

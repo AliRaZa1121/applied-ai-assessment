@@ -53,16 +53,6 @@ export class UpdatePlanRequestDTO {
     billingInterval?: BillingInterval;
 
     @ApiProperty({
-        example: 14,
-        description: 'Trial period in days',
-        required: false
-    })
-    @IsOptional()
-    @IsInt()
-    @Min(0)
-    trialDays?: number;
-
-    @ApiProperty({
         example: ['Updated Feature 1', 'New Feature'],
         description: 'Array of plan features',
         required: false

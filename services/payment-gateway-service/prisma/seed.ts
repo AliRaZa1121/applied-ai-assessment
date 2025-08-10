@@ -1,4 +1,12 @@
-import { PrismaClient, PaymentIntentStatus, PaymentStatus, GatewayType, PaymentMethod, WebhookDeliveryStatus, RefundStatus } from '@prisma/client';
+import { 
+    GatewayType, 
+    PaymentIntentStatus, 
+    PaymentMethod, 
+    PaymentStatus, 
+    PrismaClient, 
+    WebhookDeliveryStatus,
+    WebhookEventType
+} from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -7,7 +15,6 @@ async function main() {
 
     // Clean existing data
     await prisma.webhookDelivery.deleteMany();
-    await prisma.refund.deleteMany();
     await prisma.payment.deleteMany();
     await prisma.paymentIntent.deleteMany();
     await prisma.paymentGatewayConfig.deleteMany();
@@ -24,12 +31,49 @@ async function main() {
             settings: {
                 webhookEndpoint: '/api/webhooks/stripe',
                 supportedCurrencies: ['USD', 'EUR', 'GBP'],
+                features: ['subscriptions', 'one-time-payments', 'refunds'],
             },
         },
     });
 
-    console.log('✅ Created Stripe payment gateway config:', {
-        stripeGateway: stripeGateway.id
+    // Create PayPal Payment Gateway Configuration  
+    const paypalGateway = await prisma.paymentGatewayConfig.create({
+        data: {
+            name: 'PayPal Gateway',
+            gatewayType: GatewayType.PAYPAL,
+            isActive: true,
+            isDefault: false,
+            sandboxMode: true,
+            supportedMethods: [PaymentMethod.DIGITAL_WALLET, PaymentMethod.BANK_TRANSFER],
+            settings: {
+                webhookEndpoint: '/api/webhooks/paypal',
+                supportedCurrencies: ['USD', 'EUR', 'GBP', 'CAD'],
+                features: ['subscriptions', 'one-time-payments'],
+            },
+        },
+    });
+
+    // Create Square Payment Gateway Configuration (inactive)
+    const squareGateway = await prisma.paymentGatewayConfig.create({
+        data: {
+            name: 'Square Gateway',
+            gatewayType: GatewayType.SQUARE,
+            isActive: false,
+            isDefault: false,
+            sandboxMode: true,
+            supportedMethods: [PaymentMethod.CREDIT_CARD, PaymentMethod.DEBIT_CARD],
+            settings: {
+                webhookEndpoint: '/api/webhooks/square',
+                supportedCurrencies: ['USD'],
+                features: ['one-time-payments'],
+            },
+        },
+    });
+
+    console.log('✅ Created payment gateway configs:', {
+        stripeGateway: stripeGateway.id,
+        paypalGateway: paypalGateway.id,
+        squareGateway: squareGateway.id
     });
 
     // Create sample Payment Intents (for different subscriptions)
@@ -92,10 +136,51 @@ async function main() {
         },
     });
 
+    // Create a pending payment intent
+    const paymentIntent4 = await prisma.paymentIntent.create({
+        data: {
+            subscriptionId: 'sub_bob_basic_monthly',
+            userId: 'user_bob_johnson',
+            amount: 999, // $9.99
+            currency: 'USD',
+            status: PaymentIntentStatus.PENDING,
+            paymentMethod: PaymentMethod.CREDIT_CARD,
+            clientSecret: 'pi_pending_secret_789012',
+            description: 'Monthly subscription - Basic Plan',
+            metadata: {
+                subscriptionId: 'sub_bob_basic_monthly',
+                planName: 'Basic',
+                billingCycle: 'monthly',
+            },
+        },
+    });
+
+    // Create a processing payment intent
+    const paymentIntent5 = await prisma.paymentIntent.create({
+        data: {
+            subscriptionId: 'sub_processing_test',
+            userId: 'user_processing_test',
+            amount: 2999, // $29.99
+            currency: 'USD',
+            status: PaymentIntentStatus.PROCESSING,
+            paymentMethod: PaymentMethod.DIGITAL_WALLET,
+            clientSecret: 'pi_processing_secret_345678',
+            description: 'Monthly subscription - Pro Plan',
+            metadata: {
+                subscriptionId: 'sub_processing_test',
+                planName: 'Pro',
+                billingCycle: 'monthly',
+                paymentMethod: 'digital_wallet',
+            },
+        },
+    });
+
     console.log('✅ Created payment intents:', {
         paymentIntent1: paymentIntent1.id,
         paymentIntent2: paymentIntent2.id,
-        paymentIntent3: paymentIntent3.id
+        paymentIntent3: paymentIntent3.id,
+        paymentIntent4: paymentIntent4.id,
+        paymentIntent5: paymentIntent5.id
     });
 
     // Create successful payments for the Payment Intents
@@ -155,7 +240,6 @@ async function main() {
                     type: 'card_error',
                 },
             },
-            isSimulated: true,
             processedAt: new Date(),
         },
     });
@@ -170,8 +254,7 @@ async function main() {
     const webhook1 = await prisma.webhookDelivery.create({
         data: {
             paymentIntentId: paymentIntent1.id,
-            eventType: 'PAYMENT_INTENT_SUCCEEDED',
-            webhookUrl: 'http://user-subscription-service:3000/api/webhooks/payment',
+            eventType: WebhookEventType.PAYMENT_INTENT_SUCCEEDED,
             payload: {
                 eventType: 'payment_intent.succeeded',
                 data: {
@@ -185,19 +268,14 @@ async function main() {
                 },
                 timestamp: new Date().toISOString(),
             },
-            httpStatus: 200,
-            response: 'OK',
-            deliveryAttempts: 1,
             status: WebhookDeliveryStatus.DELIVERED,
-            deliveredAt: new Date(),
         },
     });
 
     const webhook2 = await prisma.webhookDelivery.create({
         data: {
             paymentIntentId: paymentIntent3.id,
-            eventType: 'PAYMENT_INTENT_FAILED',
-            webhookUrl: 'http://user-subscription-service:3000/api/webhooks/payment',
+            eventType: WebhookEventType.PAYMENT_INTENT_FAILED,
             payload: {
                 eventType: 'payment_intent.failed',
                 data: {
@@ -215,40 +293,38 @@ async function main() {
                 },
                 timestamp: new Date().toISOString(),
             },
-            httpStatus: 200,
-            response: 'OK',
-            deliveryAttempts: 1,
             status: WebhookDeliveryStatus.DELIVERED,
-            deliveredAt: new Date(),
+        },
+    });
+
+    // Create a webhook delivery for successful payment
+    const webhook3 = await prisma.webhookDelivery.create({
+        data: {
+            paymentIntentId: paymentIntent1.id,
+            eventType: WebhookEventType.PAYMENT_SUCCEEDED,
+            payload: {
+                eventType: 'payment.succeeded',
+                data: {
+                    object: {
+                        id: payment1.id,
+                        paymentIntentId: paymentIntent1.id,
+                        amount: payment1.amount,
+                        currency: payment1.currency,
+                        status: 'succeeded',
+                        gatewayPaymentId: payment1.gatewayPaymentId,
+                    },
+                },
+                timestamp: new Date().toISOString(),
+            },
+            status: WebhookDeliveryStatus.DELIVERED,
         },
     });
 
     console.log('✅ Created webhook deliveries:', {
         webhook1: webhook1.id,
-        webhook2: webhook2.id
+        webhook2: webhook2.id,
+        webhook3: webhook3.id
     });
-
-    // Create a sample refund
-    const refund1 = await prisma.refund.create({
-        data: {
-            paymentId: payment1.id,
-            amount: 1000, // Partial refund of $10.00
-            currency: 'USD',
-            status: RefundStatus.SUCCEEDED,
-            reason: 'REQUESTED_BY_CUSTOMER',
-            gatewayRefundId: 're_1234567890',
-            gatewayResponse: {
-                id: 're_1234567890',
-                amount: 1000,
-                currency: 'usd',
-                status: 'succeeded',
-                created: Math.floor(Date.now() / 1000),
-            },
-            processedAt: new Date(),
-        },
-    });
-
-    console.log('✅ Created refunds:', { refund1: refund1.id });
 
     console.log('🎉 Payment Gateway Service seed completed!');
 
@@ -257,7 +333,6 @@ async function main() {
     console.log(`⚙️  Gateway Configs: ${await prisma.paymentGatewayConfig.count()}`);
     console.log(`💳 Payment Intents: ${await prisma.paymentIntent.count()}`);
     console.log(`💰 Payments: ${await prisma.payment.count()}`);
-    console.log(`↩️  Refunds: ${await prisma.refund.count()}`);
     console.log(`🔗 Webhook Deliveries: ${await prisma.webhookDelivery.count()}`);
 }
 

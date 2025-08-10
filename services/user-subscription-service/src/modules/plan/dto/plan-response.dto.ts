@@ -40,11 +40,6 @@ export class PlanResponseDto {
     })
     billingInterval: BillingInterval;
 
-    @ApiProperty({
-        example: 7,
-        description: 'Trial period in days'
-    })
-    trialDays: number;
 
     @ApiProperty({
         example: ['Feature 1', 'Feature 2', 'Unlimited access'],

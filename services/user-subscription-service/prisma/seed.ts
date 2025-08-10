@@ -1,4 +1,4 @@
-import { BillingInterval, PrismaClient, SubscriptionStatus } from '@prisma/client';
+import { BillingInterval, BillingStatus, PrismaClient, SubscriptionStatus, WebhookEventType } from '@prisma/client';
 import * as argon2 from 'argon2';
 
 const prisma = new PrismaClient();
@@ -22,7 +22,7 @@ async function main() {
             price: 999, // $9.99
             currency: 'USD',
             billingInterval: BillingInterval.MONTHLY,
-            trialDays: 7,
+            gatewayPlanId: 'plan_basic_123',
             features: [
                 'Up to 5 projects',
                 'Basic support',
@@ -40,7 +40,7 @@ async function main() {
             price: 2999, // $29.99
             currency: 'USD',
             billingInterval: BillingInterval.MONTHLY,
-            trialDays: 14,
+            gatewayPlanId: 'plan_pro_456',
             features: [
                 'Unlimited projects',
                 'Priority support',
@@ -60,7 +60,7 @@ async function main() {
             price: 9999, // $99.99
             currency: 'USD',
             billingInterval: BillingInterval.MONTHLY,
-            trialDays: 30,
+            gatewayPlanId: 'plan_enterprise_789',
             features: [
                 'Everything in Pro',
                 'Dedicated support',
@@ -80,7 +80,7 @@ async function main() {
             price: 28799, // $287.99 (20% discount)
             currency: 'USD',
             billingInterval: BillingInterval.YEARLY,
-            trialDays: 14,
+            gatewayPlanId: 'plan_pro_yearly_101112',
             features: [
                 'All Pro features',
                 '20% annual discount',
@@ -150,8 +150,6 @@ async function main() {
             status: SubscriptionStatus.ACTIVE,
             currentPeriodStart: currentDate,
             currentPeriodEnd: futureDate,
-            trialStart: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), // 14 days ago
-            trialEnd: currentDate,
         },
     });
 
@@ -159,9 +157,9 @@ async function main() {
         data: {
             userId: janeSmith.id,
             planId: basicPlan.id,
-            status: SubscriptionStatus.TRIALING,
-            trialStart: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-            trialEnd: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000), // 4 days from now
+            status: SubscriptionStatus.ACTIVE,
+            currentPeriodStart: currentDate,
+            currentPeriodEnd: futureDate,
         },
     });
 
@@ -177,10 +175,22 @@ async function main() {
 
     // Bob has no subscription (free user)
 
+    // Create a pending subscription for testing
+    const bobSubscription = await prisma.subscription.create({
+        data: {
+            userId: bobJohnson.id,
+            planId: basicPlan.id,
+            status: SubscriptionStatus.PENDING,
+            currentPeriodStart: currentDate,
+            currentPeriodEnd: futureDate,
+        },
+    });
+
     console.log('✅ Created subscriptions:', {
         johnSubscription: johnSubscription.id,
         janeSubscription: janeSubscription.id,
-        aliceSubscription: aliceSubscription.id
+        aliceSubscription: aliceSubscription.id,
+        bobSubscription: bobSubscription.id
     });
 
     // Create sample billing history
@@ -189,8 +199,8 @@ async function main() {
             subscriptionId: johnSubscription.id,
             amount: proPlan.price,
             currency: 'USD',
-            status: 'PAID',
-            paymentId: 'pay_1234567890',
+            status: BillingStatus.PAID,
+            gatewayPaymentId: 'pay_1234567890',
             description: 'Monthly subscription - Pro Plan',
             billingDate: currentDate,
         },
@@ -201,10 +211,36 @@ async function main() {
             subscriptionId: aliceSubscription.id,
             amount: enterprisePlan.price,
             currency: 'USD',
-            status: 'PAID',
-            paymentId: 'pay_0987654321',
+            status: BillingStatus.PAID,
+            gatewayPaymentId: 'pay_0987654321',
             description: 'Monthly subscription - Enterprise Plan',
             billingDate: currentDate,
+        },
+    });
+
+    // Create a failed payment billing record
+    await prisma.billingHistory.create({
+        data: {
+            subscriptionId: bobSubscription.id,
+            amount: basicPlan.price,
+            currency: 'USD',
+            status: BillingStatus.FAILED,
+            gatewayPaymentId: 'pay_failed_123',
+            description: 'Monthly subscription - Basic Plan (Failed)',
+            billingDate: currentDate,
+        },
+    });
+
+    // Create a pending payment billing record
+    await prisma.billingHistory.create({
+        data: {
+            subscriptionId: janeSubscription.id,
+            amount: basicPlan.price,
+            currency: 'USD',
+            status: BillingStatus.PENDING,
+            gatewayPaymentId: 'pay_pending_456',
+            description: 'Monthly subscription - Basic Plan (Pending)',
+            billingDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
         },
     });
 
@@ -214,28 +250,53 @@ async function main() {
     await prisma.webhookEvent.create({
         data: {
             subscriptionId: johnSubscription.id,
-            eventType: 'PAYMENT_SUCCEEDED',
+            eventType: WebhookEventType.PAYMENT_SUCCEEDED,
             eventData: {
-                paymentId: 'pay_1234567890',
+                gatewayPaymentId: 'pay_1234567890',
                 amount: proPlan.price,
                 currency: 'USD',
                 timestamp: currentDate.toISOString(),
             },
-            processed: true,
         },
     });
 
     await prisma.webhookEvent.create({
         data: {
             subscriptionId: janeSubscription.id,
-            eventType: 'SUBSCRIPTION_CREATED',
+            eventType: WebhookEventType.SUBSCRIPTION_CREATED,
             eventData: {
                 subscriptionId: janeSubscription.id,
                 planId: basicPlan.id,
-                trialEnd: janeSubscription.trialEnd?.toISOString(),
                 timestamp: janeSubscription.createdAt.toISOString(),
             },
-            processed: true,
+        },
+    });
+
+    // Create additional webhook events for better testing
+    await prisma.webhookEvent.create({
+        data: {
+            subscriptionId: aliceSubscription.id,
+            eventType: WebhookEventType.PAYMENT_SUCCEEDED,
+            eventData: {
+                gatewayPaymentId: 'pay_0987654321',
+                amount: enterprisePlan.price,
+                currency: 'USD',
+                timestamp: currentDate.toISOString(),
+            },
+        },
+    });
+
+    // Create a failed payment webhook event
+    await prisma.webhookEvent.create({
+        data: {
+            eventType: WebhookEventType.PAYMENT_FAILED,
+            eventData: {
+                gatewayPaymentId: 'pay_failed_123',
+                amount: 999,
+                currency: 'USD',
+                timestamp: currentDate.toISOString(),
+                error: 'Insufficient funds',
+            },
         },
     });
 

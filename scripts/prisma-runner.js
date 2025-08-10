@@ -129,12 +129,12 @@ function runPrismaCommand(service, environment, command, args = []) {
         const resetCommand =
             `docker exec -e ${envVar}="${dbUrl}" ` +
             `${containerName} ` +
-            `sh -lc "cd ${servicePathInContainer} && npx prisma migrate reset --force --skip-generate"`;
+            `sh -lc "cd ${servicePathInContainer} && npx prisma migrate reset --force --skip-generate --skip-seed "`;
 
         const pushResetCommand =
             `docker exec -e ${envVar}="${dbUrl}" ` +
             `${containerName} ` +
-            `sh -lc "cd ${servicePathInContainer} && npx prisma db push --force-reset --skip-generate"`;
+            `sh -lc "cd ${servicePathInContainer} && npx prisma db push --force-reset --skip-generate --skip-seed "`;
 
         console.log(`⚡ Running reset command...`);
         console.log('─'.repeat(80));

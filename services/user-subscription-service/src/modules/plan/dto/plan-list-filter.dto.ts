@@ -58,26 +58,7 @@ export class PlanListFilterDto {
     @IsString()
     name?: string;
 
-    @ApiPropertyOptional({
-        example: 7,
-        description: 'Filter by minimum trial days'
-    })
-    @IsOptional()
-    @Type(() => Number)
-    @IsInt()
-    @Min(0)
-    minTrialDays?: number;
-
-    @ApiPropertyOptional({
-        example: 30,
-        description: 'Filter by maximum trial days'
-    })
-    @IsOptional()
-    @Type(() => Number)
-    @IsInt()
-    @Min(0)
-    maxTrialDays?: number;
-
+    
     @ApiPropertyOptional({
         example: 1,
         description: 'Page number for pagination',

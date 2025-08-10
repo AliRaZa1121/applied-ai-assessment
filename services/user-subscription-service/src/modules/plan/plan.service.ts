@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { SubscriptionStatus } from '@prisma/client';
+import { PaymentService } from 'src/apps/payment/payment.service';
 import DatabaseService from 'src/database/database.service';
 import { successApiWrapper } from 'src/utilities/constant/response-constant';
 import { BaseResponseDto } from 'src/utilities/swagger-responses/base-response';
@@ -9,7 +10,11 @@ import { PlanResponseDto } from './dto/plan-response.dto';
 
 @Injectable()
 export class PlanService {
-    constructor(private readonly _databaseService: DatabaseService) { }
+
+    constructor(
+        private readonly _databaseService: DatabaseService,
+        private readonly _paymentService: PaymentService
+    ) { }
 
     async createPlan(data: CreatePlanRequestDTO): Promise<BaseResponseDto<PlanResponseDto>> {
         // Check if plan name already exists
@@ -21,17 +26,36 @@ export class PlanService {
             throw new BadRequestException('Plan with this name already exists');
         }
 
-        const plan = await this._databaseService.plan.create({
-            data: {
-                name: data.name,
-                description: data.description,
-                price: data.price,
-                currency: data.currency || 'USD',
-                billingInterval: data.billingInterval,
-                trialDays: data.trialDays || 0,
-                features: data.features || [],
-                isActive: data.isActive !== undefined ? data.isActive : true,
-            }
+        // db transaction to ensure atomicity
+        const plan = await this._databaseService.$transaction(async (prisma) => {
+            // Create plan in the database
+            const newPlan = await prisma.plan.create({
+                data: {
+                    name: data.name,
+                    description: data.description,
+                    price: data.price,
+                    currency: data.currency,
+                    billingInterval: data.billingInterval,
+                    features: data.features,
+                    isActive: data.isActive,
+                }
+            });
+
+            // Create plan in the payment gateway
+            const gatewayPlanId = await this._paymentService.createPlan({
+                name: newPlan.name,
+                description: newPlan.description,
+                price: newPlan.price,
+                currency: newPlan.currency,
+                billingInterval: newPlan.billingInterval,
+                features: newPlan.features
+            });
+
+            // Update the plan with the gateway ID
+            return prisma.plan.update({
+                where: { id: newPlan.id },
+                data: { gatewayPlanId }
+            });
         });
 
         return successApiWrapper(
@@ -55,8 +79,6 @@ export class PlanService {
             maxPrice,
             currency,
             name,
-            minTrialDays,
-            maxTrialDays,
         } = query;
 
         // Build where clause for filtering
@@ -85,12 +107,6 @@ export class PlanService {
                 contains: name,
                 mode: 'insensitive'
             };
-        }
-
-        if (minTrialDays !== undefined || maxTrialDays !== undefined) {
-            where.trialDays = {};
-            if (minTrialDays !== undefined) where.trialDays.gte = minTrialDays;
-            if (maxTrialDays !== undefined) where.trialDays.lte = maxTrialDays;
         }
 
         // Calculate pagination
@@ -163,7 +179,6 @@ export class PlanService {
                 ...(data.price !== undefined && { price: data.price }),
                 ...(data.currency && { currency: data.currency }),
                 ...(data.billingInterval && { billingInterval: data.billingInterval }),
-                ...(data.trialDays !== undefined && { trialDays: data.trialDays }),
                 ...(data.features && { features: data.features }),
                 ...(data.isActive !== undefined && { isActive: data.isActive }),
             }
@@ -192,7 +207,6 @@ export class PlanService {
                 status: {
                     in: [
                         SubscriptionStatus.ACTIVE,
-                        SubscriptionStatus.TRIALING,
                         SubscriptionStatus.PENDING,
                         SubscriptionStatus.PAST_DUE
                     ]

@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { RedisModule } from './apps/cache/redis.module';
 import { NotificationModule } from './apps/notification/notification.module';
+import { PaymentModule } from './apps/payment/payment.module';
 import { HttpExceptionFilter } from './core/exceptions/http.exception';
 import DatabaseModule from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -26,6 +27,7 @@ import PlanModule from './modules/plan/plan.module';
     SubscriptionModule,
     PlanModule,
     NotificationModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [

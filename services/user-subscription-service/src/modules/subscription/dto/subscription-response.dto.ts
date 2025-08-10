@@ -43,31 +43,11 @@ export class SubscriptionResponseDto {
     currentPeriodEnd: Date | null;
 
     @ApiProperty({
-        example: '2025-08-08T00:00:00.000Z',
-        description: 'Trial period start date',
-        nullable: true
-    })
-    trialStart: Date | null;
-
-    @ApiProperty({
-        example: '2025-08-15T00:00:00.000Z',
-        description: 'Trial period end date',
-        nullable: true
-    })
-    trialEnd: Date | null;
-
-    @ApiProperty({
         example: null,
         description: 'Date when subscription was cancelled',
         nullable: true
     })
     cancelledAt: Date | null;
-
-    @ApiProperty({
-        example: false,
-        description: 'Whether subscription will be cancelled at period end'
-    })
-    cancelAtPeriodEnd: boolean;
 
     @ApiProperty({
         example: '2025-08-08T10:30:00.000Z',
@@ -173,7 +153,7 @@ export class PaymentInitiationResponseDto {
     @ApiProperty({
         example: 'payment_required',
         description: 'Payment status',
-        enum: ['payment_required', 'trial_started', 'payment_processing']
+        enum: ['payment_required', 'payment_processing']
     })
     status: string;
 
@@ -190,11 +170,4 @@ export class PaymentInitiationResponseDto {
         nullable: true
     })
     paymentId: string | null;
-
-    @ApiProperty({
-        example: '2025-08-08T10:30:00.000Z',
-        description: 'Trial end date if applicable',
-        nullable: true
-    })
-    trialEnd: string | null;
 }

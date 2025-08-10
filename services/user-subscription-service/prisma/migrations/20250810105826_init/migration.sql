@@ -8,7 +8,7 @@ CREATE TYPE "public"."TokenStatus" AS ENUM ('EXPIRED', 'ACTIVE', 'USED');
 CREATE TYPE "public"."BillingInterval" AS ENUM ('MONTHLY', 'YEARLY', 'WEEKLY');
 
 -- CreateEnum
-CREATE TYPE "public"."SubscriptionStatus" AS ENUM ('PENDING', 'ACTIVE', 'PAST_DUE', 'CANCELLED', 'UNPAID', 'INCOMPLETE', 'INCOMPLETE_EXPIRED', 'TRIALING', 'PAUSED');
+CREATE TYPE "public"."SubscriptionStatus" AS ENUM ('PENDING', 'ACTIVE', 'PAST_DUE', 'CANCELLED', 'UNPAID', 'INCOMPLETE', 'INCOMPLETE_EXPIRED', 'PAUSED');
 
 -- CreateEnum
 CREATE TYPE "public"."BillingStatus" AS ENUM ('PENDING', 'PAID', 'FAILED', 'REFUNDED', 'PARTIALLY_REFUNDED');
@@ -47,12 +47,12 @@ CREATE TABLE "public"."tokens" (
 -- CreateTable
 CREATE TABLE "public"."plans" (
     "id" TEXT NOT NULL,
+    "gatewayPlanId" TEXT,
     "name" TEXT NOT NULL,
     "description" TEXT,
     "price" INTEGER NOT NULL,
     "currency" TEXT NOT NULL DEFAULT 'USD',
     "billingInterval" "public"."BillingInterval" NOT NULL,
-    "trialDays" INTEGER NOT NULL DEFAULT 0,
     "features" JSONB,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -69,10 +69,7 @@ CREATE TABLE "public"."subscriptions" (
     "status" "public"."SubscriptionStatus" NOT NULL DEFAULT 'PENDING',
     "currentPeriodStart" TIMESTAMP(3),
     "currentPeriodEnd" TIMESTAMP(3),
-    "trialStart" TIMESTAMP(3),
-    "trialEnd" TIMESTAMP(3),
     "cancelledAt" TIMESTAMP(3),
-    "cancelAtPeriodEnd" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -86,7 +83,7 @@ CREATE TABLE "public"."billing_history" (
     "amount" INTEGER NOT NULL,
     "currency" TEXT NOT NULL DEFAULT 'USD',
     "status" "public"."BillingStatus" NOT NULL,
-    "paymentId" TEXT,
+    "gatewayPaymentId" TEXT,
     "description" TEXT,
     "billingDate" TIMESTAMP(3) NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -101,9 +98,6 @@ CREATE TABLE "public"."webhook_events" (
     "subscriptionId" TEXT,
     "eventType" "public"."WebhookEventType" NOT NULL,
     "eventData" JSONB NOT NULL,
-    "processed" BOOLEAN NOT NULL DEFAULT false,
-    "processingError" TEXT,
-    "retryCount" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -130,6 +124,9 @@ CREATE INDEX "tokens_userId_idx" ON "public"."tokens"("userId");
 
 -- CreateIndex
 CREATE INDEX "tokens_status_idx" ON "public"."tokens"("status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "plans_gatewayPlanId_key" ON "public"."plans"("gatewayPlanId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "plans_name_key" ON "public"."plans"("name");
@@ -162,13 +159,10 @@ CREATE INDEX "billing_history_status_idx" ON "public"."billing_history"("status"
 CREATE INDEX "billing_history_billingDate_idx" ON "public"."billing_history"("billingDate");
 
 -- CreateIndex
-CREATE INDEX "billing_history_paymentId_idx" ON "public"."billing_history"("paymentId");
+CREATE INDEX "billing_history_gatewayPaymentId_idx" ON "public"."billing_history"("gatewayPaymentId");
 
 -- CreateIndex
 CREATE INDEX "webhook_events_eventType_idx" ON "public"."webhook_events"("eventType");
-
--- CreateIndex
-CREATE INDEX "webhook_events_processed_idx" ON "public"."webhook_events"("processed");
 
 -- CreateIndex
 CREATE INDEX "webhook_events_subscriptionId_idx" ON "public"."webhook_events"("subscriptionId");

@@ -47,15 +47,6 @@ export class CreatePlanRequestDTO {
   @IsEnum(BillingInterval)
   billingInterval: BillingInterval;
 
-  @ApiProperty({
-    example: 7,
-    description: 'Trial period in days',
-    default: 0
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  trialDays?: number;
 
   @ApiProperty({
     example: ['Feature 1', 'Feature 2', 'Unlimited access'],
@@ -124,15 +115,6 @@ export class UpdatePlanRequestDTO {
   @IsEnum(BillingInterval)
   billingInterval?: BillingInterval;
 
-  @ApiProperty({
-    example: 14,
-    description: 'Trial period in days',
-    required: false
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  trialDays?: number;
 
   @ApiProperty({
     example: ['Updated Feature 1', 'New Feature'],

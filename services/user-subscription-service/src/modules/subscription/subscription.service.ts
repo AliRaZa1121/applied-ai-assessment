@@ -1,5 +1,6 @@
 import { BadRequestException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { BillingInterval, BillingStatus, SubscriptionStatus } from '@prisma/client';
+import { PaymentService } from 'src/apps/payment/payment.service';
 import DatabaseService from 'src/database/database.service';
 import { successApiWrapper } from 'src/utilities/constant/response-constant';
 import { BaseResponseDto } from 'src/utilities/swagger-responses/base-response';
@@ -10,14 +11,16 @@ import {
     SubscriptionWithPlanResponseDto
 } from './dto/subscription-response.dto';
 import {
-    CreateSubscriptionRequestDTO,
-    UpgradeSubscriptionRequestDTO
+    CreateSubscriptionRequestDTO
 } from './dto/subscription.dto';
 import { ProcessWebhookDTO } from './dto/webhook.dto';
 
 @Injectable()
 export default class SubscriptionService {
-    constructor(private readonly _databaseService: DatabaseService) { }
+    constructor(
+        private readonly _databaseService: DatabaseService,
+        private readonly _paymentService: PaymentService
+    ) { }
 
     // =====================================
     // SUBSCRIPTION MANAGEMENT
@@ -53,17 +56,8 @@ export default class SubscriptionService {
             }
 
             const now = new Date();
-            let trialStart: Date | null = null;
-            let trialEnd: Date | null = null;
             let currentPeriodStart = now;
             let currentPeriodEnd = new Date();
-
-            // Calculate trial period if requested and available
-            if (plan.trialDays > 0) {
-                trialStart = now;
-                trialEnd = new Date(now.getTime() + (plan.trialDays * 24 * 60 * 60 * 1000));
-                currentPeriodStart = trialEnd;
-            }
 
             // Calculate current period end based on billing interval
             if (plan.billingInterval === BillingInterval.MONTHLY) {
@@ -76,43 +70,32 @@ export default class SubscriptionService {
                 currentPeriodEnd = new Date(currentPeriodStart.getTime() + (7 * 24 * 60 * 60 * 1000));
             }
 
+            // Create subscription with PENDING status initially
             const subscription = await this._databaseService.subscription.create({
                 data: {
                     userId,
                     planId: data.planId,
-                    status: trialStart ? SubscriptionStatus.ACTIVE : SubscriptionStatus.PENDING,
+                    status: SubscriptionStatus.PENDING,
                     currentPeriodStart,
                     currentPeriodEnd,
-                    trialStart,
-                    trialEnd,
                 }
             });
 
-            // If trial, no payment needed immediately
-            if (trialStart) {
-                const paymentInitiation: PaymentInitiationResponseDto = {
-                    subscriptionId: subscription.id,
-                    status: 'trial_started',
-                    paymentUrl: null,
-                    paymentId: null,
-                    trialEnd: trialEnd?.toISOString() || null
-                };
+            // Create payment intent for immediate payment
+            const paymentIntent = await this._paymentService.createPaymentIntent({
+                subscriptionId: subscription.id,
+                userId,
+                cardToken: data.cardToken,
+                amount: plan.price,
+                currency: 'USD',
+                description: `Subscription to ${plan.name} plan (Card: ${data.cardToken})`
+            });
 
-                return successApiWrapper(
-                    paymentInitiation,
-                    'Subscription created successfully with trial',
-                    HttpStatus.CREATED
-                );
-            }
-
-            // TODO: Integrate with payment gateway service to create payment
-            // For now, return mock payment data
             const paymentInitiation: PaymentInitiationResponseDto = {
                 subscriptionId: subscription.id,
                 status: 'payment_required',
-                paymentUrl: `https://payment-gateway.example.com/pay/${subscription.id}`,
-                paymentId: `pay_${Date.now()}`,
-                trialEnd: null
+                paymentUrl: paymentIntent.clientSecret ? `https://checkout.stripe.com/pay/${paymentIntent.clientSecret}` : null,
+                paymentId: paymentIntent.id
             };
 
             return successApiWrapper(
@@ -188,8 +171,17 @@ export default class SubscriptionService {
             throw new BadRequestException('Subscription is already cancelled');
         }
 
+        // Cancel any active payment intents with the payment gateway service
+        try {
+            await this._paymentService.cancelPayment(subscriptionId);
+        } catch (error) {
+            // Log error but don't fail the cancellation process
+            console.error('Failed to cancel payment intent:', error);
+        }
+
         const updateData: any = {
             cancelledAt: new Date(),
+            status: SubscriptionStatus.CANCELLED
         };
 
         const updatedSubscription = await this._databaseService.subscription.update({
@@ -205,68 +197,77 @@ export default class SubscriptionService {
 
     }
 
-    async upgradeSubscription(
-        userId: string,
-        subscriptionId: string,
-        data: UpgradeSubscriptionRequestDTO
-    ): Promise<BaseResponseDto<PaymentInitiationResponseDto>> {
-        try {
+    // async upgradeSubscription(
+    //     userId: string,
+    //     subscriptionId: string,
+    //     data: UpgradeSubscriptionRequestDTO
+    // ): Promise<BaseResponseDto<PaymentInitiationResponseDto>> {
+    //     try {
 
-            const subscription = await this._databaseService.subscription.findFirst({
-                where: {
-                    id: subscriptionId,
-                    userId
-                },
-                include: { plan: true }
-            });
+    //         const subscription = await this._databaseService.subscription.findFirst({
+    //             where: {
+    //                 id: subscriptionId,
+    //                 userId
+    //             },
+    //             include: { plan: true }
+    //         });
 
-            if (!subscription) {
-                throw new NotFoundException('Subscription not found');
-            }
+    //         if (!subscription) {
+    //             throw new NotFoundException('Subscription not found');
+    //         }
 
-            if (subscription.status !== SubscriptionStatus.ACTIVE && subscription.status !== SubscriptionStatus.TRIALING) {
-                throw new BadRequestException('Only active subscriptions can be upgraded');
-            }
+    //         if (subscription.status !== SubscriptionStatus.ACTIVE) {
+    //             throw new BadRequestException('Only active subscriptions can be upgraded');
+    //         }
 
-            const newPlan = await this._databaseService.plan.findUnique({
-                where: { id: data.newPlanId }
-            });
+    //         const newPlan = await this._databaseService.plan.findUnique({
+    //             where: { id: data.newPlanId }
+    //         });
 
-            if (!newPlan || !newPlan.isActive) {
-                throw new BadRequestException('Invalid or inactive plan');
-            }
+    //         if (!newPlan || !newPlan.isActive) {
+    //             throw new BadRequestException('Invalid or inactive plan');
+    //         }
 
-            if (newPlan.price <= subscription.plan.price) {
-                throw new BadRequestException('New plan must have a higher price for upgrade');
-            }
+    //         if (newPlan.price <= subscription.plan.price) {
+    //             throw new BadRequestException('New plan must have a higher price for upgrade');
+    //         }
 
-            // Create payment for upgrade
-            const paymentInitiation: PaymentInitiationResponseDto = {
-                subscriptionId: subscription.id,
-                status: 'payment_processing',
-                paymentUrl: `https://payment-gateway.example.com/pay/${subscription.id}/upgrade`,
-                paymentId: `pay_upgrade_${Date.now()}`,
-                trialEnd: null
-            };
+    //         // Create payment intent for upgrade with payment gateway service
+    //         const upgradeDifference = newPlan.price - subscription.plan.price;
+    //         const paymentIntent = await this._paymentService.createPaymentIntent({
+    //             subscriptionId: subscription.id,
+    //             userId,
 
-            await this._databaseService.subscription.update({
-                where: { id: subscriptionId },
-                data: {
-                    planId: data.newPlanId,
-                    status: SubscriptionStatus.PENDING, // Will be activated after payment
-                }
-            });
+    //             amount: upgradeDifference,
+    //             currency: 'USD',
+    //             description: `Upgrade from ${subscription.plan.name} to ${newPlan.name} plan`
+    //         });
 
-            return successApiWrapper(
-                paymentInitiation,
-                'Subscription upgrade initiated successfully',
-                HttpStatus.OK
-            );
-        } catch (error) {
-            if (error instanceof NotFoundException || error instanceof BadRequestException) throw error;
-            throw new BadRequestException('Failed to upgrade subscription');
-        }
-    }
+    //         const paymentInitiation: PaymentInitiationResponseDto = {
+    //             subscriptionId: subscription.id,
+    //             status: paymentIntent.status === 'requires_payment_method' ? 'payment_required' : 'payment_processing',
+    //             paymentUrl: paymentIntent.clientSecret ? `https://checkout.stripe.com/pay/${paymentIntent.clientSecret}` : null,
+    //             paymentId: paymentIntent.id
+    //         };
+
+    //         await this._databaseService.subscription.update({
+    //             where: { id: subscriptionId },
+    //             data: {
+    //                 planId: data.newPlanId,
+    //                 status: SubscriptionStatus.PENDING, // Will be activated after payment
+    //             }
+    //         });
+
+    //         return successApiWrapper(
+    //             paymentInitiation,
+    //             'Subscription upgrade initiated successfully',
+    //             HttpStatus.OK
+    //         );
+    //     } catch (error) {
+    //         if (error instanceof NotFoundException || error instanceof BadRequestException) throw error;
+    //         throw new BadRequestException('Failed to upgrade subscription');
+    //     }
+    // }
 
     // =====================================
     // BILLING HISTORY & STATISTICS
@@ -305,7 +306,7 @@ export default class SubscriptionService {
                 amount: record.amount,
                 currency: record.currency,
                 status: record.status,
-                paymentId: record.paymentId,
+                paymentId: record.gatewayPaymentId,
                 description: record.description,
                 billingDate: record.billingDate,
                 createdAt: record.createdAt,
@@ -336,8 +337,6 @@ export default class SubscriptionService {
                     subscriptionId: data.eventData.subscriptionId || null,
                     eventType: data.eventType as any,
                     eventData: data.eventData,
-                    processed: true,
-                    retryCount: 0,
                 }
             });
 
@@ -389,7 +388,7 @@ export default class SubscriptionService {
                 amount: amount,
                 currency: currency || 'USD',
                 status: BillingStatus.PAID,
-                paymentId: paymentId,
+                gatewayPaymentId: paymentId,
                 billingDate: new Date(),
                 description: `Payment for subscription ${subscriptionId}`,
             }
@@ -412,7 +411,7 @@ export default class SubscriptionService {
                 amount: amount,
                 currency: currency || 'USD',
                 status: BillingStatus.FAILED,
-                paymentId: paymentId,
+                gatewayPaymentId: paymentId,
                 billingDate: new Date(),
                 description: `Failed payment for subscription ${subscriptionId}: ${error}`,
             }

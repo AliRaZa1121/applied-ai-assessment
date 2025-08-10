@@ -1,7 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { AppModule } from './app.module';
-import InjectPipes from './core/injectables/pipes';
 import { MICROSERVICES } from './utilities/constant/microservice-constant';
 
 async function bootstrap() {
@@ -19,7 +18,6 @@ async function bootstrap() {
     },
   });
 
-  InjectPipes(app);
   await app.listen();
 }
 void bootstrap();

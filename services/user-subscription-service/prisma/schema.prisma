@@ -13,22 +13,22 @@ generator client {
 // =====================================
 
 model User {
-    id            String         @id @default(uuid())
-    email         String         @unique
+    id            String   @id @default(uuid())
+    email         String   @unique
     name          String
     password      String
-    emailVerified Boolean        @default(false)
-    isActive      Boolean        @default(true)
-    createdAt     DateTime       @default(now())
-    updatedAt     DateTime       @updatedAt
-    
+    emailVerified Boolean  @default(false)
+    isActive      Boolean  @default(true)
+    createdAt     DateTime @default(now())
+    updatedAt     DateTime @updatedAt
+
     // Relations
     tokens        Token[]
     subscriptions Subscription[]
 
-    @@map("users")
     @@index([email])
     @@index([isActive])
+    @@map("users")
 }
 
 model Token {
@@ -42,10 +42,10 @@ model Token {
     createdAt  DateTime    @default(now())
     updatedAt  DateTime    @updatedAt
 
-    @@map("tokens")
     @@index([identifier])
     @@index([userId])
     @@index([status])
+    @@map("tokens")
 }
 
 enum TokenReason {
@@ -66,72 +66,70 @@ enum TokenStatus {
 // =====================================
 
 model Plan {
-    id              String         @id @default(uuid())
-    name            String         @unique
+    id              String          @id @default(uuid())
+    gatewayPlanId   String?         @unique
+    name            String          @unique
     description     String?
-    price           Int            // Price in cents
-    currency        String         @default("USD")
+    price           Int // Price in cents
+    currency        String          @default("USD")
     billingInterval BillingInterval
-    trialDays       Int            @default(0)
-    features        Json?          // JSON array of features
-    isActive        Boolean        @default(true)
-    createdAt       DateTime       @default(now())
-    updatedAt       DateTime       @updatedAt
-    
-    // Relations
-    subscriptions   Subscription[]
+    features        Json? // JSON array of features
+    isActive        Boolean         @default(true)
+    createdAt       DateTime        @default(now())
+    updatedAt       DateTime        @updatedAt
 
-    @@map("plans")
+    // Relations
+    subscriptions Subscription[]
+
     @@index([isActive])
     @@index([price])
+    @@map("plans")
 }
 
 model Subscription {
-    id                String             @id @default(uuid())
-    userId            String
-    planId            String
-    status            SubscriptionStatus @default(PENDING)
+    id                 String             @id @default(uuid())
+    userId             String
+    planId             String
+    status             SubscriptionStatus @default(PENDING)
     currentPeriodStart DateTime?
     currentPeriodEnd   DateTime?
-    trialStart        DateTime?
-    trialEnd          DateTime?
-    cancelledAt       DateTime?
-    createdAt         DateTime          @default(now())
-    updatedAt         DateTime          @updatedAt
-    
-    // Relations
-    user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-    plan              Plan              @relation(fields: [planId], references: [id])
-    webhookEvents     WebhookEvent[]
-    billingHistory    BillingHistory[]
+    cancelledAt        DateTime?
+    createdAt          DateTime           @default(now())
+    updatedAt          DateTime           @updatedAt
 
-    @@map("subscriptions")
+    // Relations
+    user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+    plan           Plan             @relation(fields: [planId], references: [id])
+    webhookEvents  WebhookEvent[]
+    billingHistory BillingHistory[]
+
     @@index([userId])
     @@index([planId])
     @@index([status])
     @@index([currentPeriodEnd])
+    @@map("subscriptions")
 }
 
 model BillingHistory {
-    id             String          @id @default(uuid())
-    subscriptionId String
-    amount         Int             // Amount in cents
-    currency       String          @default("USD")
-    status         BillingStatus
-    paymentId      String?         // Payment ID from payment service
-    description    String?
-    billingDate    DateTime
-    createdAt      DateTime        @default(now())
-    updatedAt      DateTime        @updatedAt
-    
-    // Relations
-    subscription   Subscription    @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+    id               String        @id @default(uuid())
+    subscriptionId   String
+    amount           Int // Amount in cents
+    currency         String        @default("USD")
+    status           BillingStatus
+    gatewayPaymentId String? // Payment ID from payment service
+    description      String?
+    billingDate      DateTime
+    createdAt        DateTime      @default(now())
+    updatedAt        DateTime      @updatedAt
 
-    @@map("billing_history")
+    // Relations
+    subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
     @@index([subscriptionId])
     @@index([status])
     @@index([billingDate])
-    @@index([paymentId])
+    @@index([gatewayPaymentId])
+    @@map("billing_history")
 }
 
 // =====================================
@@ -139,24 +137,20 @@ model BillingHistory {
 // =====================================
 
 model WebhookEvent {
-    id             String          @id @default(uuid())
+    id             String           @id @default(uuid())
     subscriptionId String?
     eventType      WebhookEventType
     eventData      Json
-    processed      Boolean         @default(false)
-    processingError String?
-    retryCount     Int             @default(0)
-    createdAt      DateTime        @default(now())
-    updatedAt      DateTime        @updatedAt
-    
-    // Relations
-    subscription   Subscription?   @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+    createdAt      DateTime         @default(now())
+    updatedAt      DateTime         @updatedAt
 
-    @@map("webhook_events")
+    // Relations
+    subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
     @@index([eventType])
-    @@index([processed])
     @@index([subscriptionId])
     @@index([createdAt])
+    @@map("webhook_events")
 }
 
 // =====================================
@@ -170,15 +164,14 @@ enum BillingInterval {
 }
 
 enum SubscriptionStatus {
-    PENDING           // Waiting for first payment
-    ACTIVE            // Currently active and paid
-    PAST_DUE          // Payment failed, grace period
-    CANCELLED         // Cancelled by user
-    UNPAID            // Payment failed, access suspended
-    INCOMPLETE        // Initial payment incomplete
+    PENDING // Waiting for first payment
+    ACTIVE // Currently active and paid
+    PAST_DUE // Payment failed, grace period
+    CANCELLED // Cancelled by user
+    UNPAID // Payment failed, access suspended
+    INCOMPLETE // Initial payment incomplete
     INCOMPLETE_EXPIRED // Initial payment expired
-    TRIALING          // In trial period
-    PAUSED            // Temporarily paused
+    PAUSED // Temporarily paused
 }
 
 enum BillingStatus {

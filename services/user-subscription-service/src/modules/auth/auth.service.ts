@@ -7,19 +7,19 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { User } from '@prisma/client';
+import { TokenReason, TokenStatus, User } from '@prisma/client';
 import RedisService from 'src/apps/cache/redis.service';
 import { NotificationService } from 'src/apps/notification/notification.service';
 import DatabaseService from 'src/database/database.service';
 import { ComparePassword, HashPassword } from 'src/helpers/hashing.helper';
-import { successApiWrapper } from 'src/utilities/constant/response-constant';
-import { SendMailMessageInterface } from 'src/utilities/interfaces/mail-interface';
-import { UserAuthInterface, UserAuthTokenInterface } from 'src/utilities/interfaces/user.interface';
 import {
   LoginResponseDto,
   RefreshTokenResponseDTO,
   UserResponse,
 } from 'src/modules/auth/dto/auth-response';
+import { successApiWrapper } from 'src/utilities/constant/response-constant';
+import { SendMailMessageInterface } from 'src/utilities/interfaces/notifications/mail-interface';
+import { UserAuthInterface, UserAuthTokenInterface } from 'src/utilities/interfaces/user.interface';
 import { BaseResponseDto } from 'src/utilities/swagger-responses/base-response';
 import { TokenService } from '../tokens/token.service';
 import { ForgetPasswordRequestDTO } from './dto/forget-password.dto';
@@ -27,7 +27,6 @@ import { RefreshAccessTokenRequestDTO } from './dto/refresh-token.dto';
 import ResetPasswordRequestDTO from './dto/reset-password.dto';
 import { LoginRequestDTO } from './dto/signin.dto';
 import { SignupRequestDTO } from './dto/signup.dto';
-import { TokenReason, TokenStatus } from '@prisma/client';
 @Injectable()
 export default class AuthService {
   constructor(
