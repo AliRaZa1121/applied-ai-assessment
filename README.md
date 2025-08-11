@@ -1,4 +1,4 @@
-# 🧠 Applied AI – Microservices Architecture
+# Applied AI – Microservices Architecture
 
 This repository contains a **Dockerized microservices setup** for an application with:
 
@@ -31,7 +31,7 @@ This repository contains a **Dockerized microservices setup** for an application
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### 1️⃣ Prerequisites
 
@@ -164,6 +164,13 @@ MAIL_PASS
 
 - JWT secrets and expiry times are set in the `.env` files.
 - Redis is used to cache tokens with expiry values.
+
+---
+
+## 📜 API Documentation
+
+* **User Subscription API Swagger UI:** [http://localhost:3001/swagger](http://localhost:3001/swagger)
+  Use this to explore available endpoints, request/response formats, and test API calls interactively.
 
 ---
 
