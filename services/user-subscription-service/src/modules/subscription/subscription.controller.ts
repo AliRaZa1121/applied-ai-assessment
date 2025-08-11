@@ -70,7 +70,7 @@ export default class SubscriptionController {
         return this._subscriptionService.getActiveSubscription(user.id);
     }
 
-    @Get('/update-subscription')
+    @Post('/update-subscription')
     @Authorized()   
     @ApiResponse({
         status: HttpStatus.OK,

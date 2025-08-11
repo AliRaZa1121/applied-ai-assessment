@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { BillingStatus, SubscriptionStatus } from '@prisma/client';
+import { BillingStatus, SubscriptionStatus, WebhookEventType } from '@prisma/client';
 import DatabaseService from 'src/database/database.service';
 import { DummyWebhookData } from 'src/utilities/interfaces/webhook-interface';
 
@@ -10,41 +10,61 @@ export default class WebhookService {
     constructor(private readonly _databaseService: DatabaseService) { }
 
     async createSubscriptionHandler(data: DummyWebhookData): Promise<void> {
-        // Logic to create subscription in the database     
         const { paymentId, eventType, status } = data;
-        const { id, object, data: { object: subscriptionData } } = data.payload;
+        const objectId = data?.payload?.id;
+        const objectType = data?.payload?.object;
+        const subscriptionData = data?.payload?.data?.object;
 
-        const billingPaymentHistory = await this._databaseService.billingHistory.findFirst({
-            where: {
-                gatewayPaymentId: paymentId,
-                status: BillingStatus.PENDING
-            },
-        });
+        try {
+            await this._databaseService.$transaction(async (tx) => {
+                
+                // Find the pending billing history inside the transaction
+                const billingPaymentHistory = await tx.billingHistory.findFirst({
+                    where: {
+                        gatewayPaymentId: paymentId,
+                        status: BillingStatus.PENDING,
+                    },
+                    select: { id: true, subscriptionId: true },
+                });
 
-        if (!billingPaymentHistory) {
-            this.logger.warn(`No billing history found for payment ID: ${paymentId}`);
-            return;
-        }
+                if (!billingPaymentHistory) {
+                    this.logger.warn(`No billing history found for payment ID: ${paymentId}`);
+                    return;
+                }
 
-        // Update Subscription based on event type
-        if (eventType === 'PAYMENT_SUCCEEDED') {
-            // Update Billing History to ACTIVE
-            await this._databaseService.billingHistory.update({
-                where: { id: billingPaymentHistory.id },
-                data: {
-                    status: BillingStatus.PAID
-                },
+                if (eventType === WebhookEventType.PAYMENT_SUCCEEDED) {
+                    await tx.billingHistory.update({
+                        where: { id: billingPaymentHistory.id },
+                        data: { status: BillingStatus.PAID },
+                    });
+
+                    await tx.subscription.update({
+                        where: { id: billingPaymentHistory.subscriptionId },
+                        data: { status: SubscriptionStatus.ACTIVE },
+                    });
+                }
+
+                // Always create webhook event (when billing history exists), as before
+                await tx.webhookEvent.create({
+                    data: {
+                        subscriptionId: billingPaymentHistory.subscriptionId,
+                        eventType: WebhookEventType.PAYMENT_SUCCEEDED,
+                        eventData: {
+                            id: objectId,
+                            object: objectType,
+                            status,
+                            subscriptionData,
+                        },
+                    },
+                });
             });
 
-            // update subscription in the database
-            await this._databaseService.subscription.update({
-                where: { id: billingPaymentHistory.subscriptionId },
-                data: {
-                    status: SubscriptionStatus.ACTIVE,
-                },
-            });
+            this.logger.log(`Handled webhook event: ${eventType} for payment ID: ${paymentId}`);
+        } catch (err) {
+            this.logger.error(
+                `Failed to handle webhook event: ${eventType} for payment ID: ${paymentId}`,
+                err instanceof Error ? err.stack : undefined,
+            );
         }
-
-
     }
 }
