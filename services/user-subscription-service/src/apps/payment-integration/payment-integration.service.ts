@@ -7,34 +7,6 @@ import { PlanCreateInterface } from 'src/utilities/interfaces/payments/plan-crea
 import { PlanUpdateInterface } from 'src/utilities/interfaces/payments/plan-update-interface';
 import { SubscriptionUpdateRequestDTO } from 'src/utilities/interfaces/payments/subscription-update.interface';
 
-export interface ConfirmPaymentRequest {
-    paymentIntentId: string;
-    paymentMethodToken?: string;
-    simulateSuccess?: boolean;
-}
-
-export interface PaymentIntentResponse {
-    id: string;
-    subscriptionId: string;
-    userId: string;
-    amount: number;
-    currency: string;
-    status: string;
-    clientSecret?: string;
-    description?: string;
-    createdAt: Date;
-}
-
-export interface PaymentProcessingResponse {
-    paymentIntent: PaymentIntentResponse;
-    payment?: any;
-    webhookDelivered: boolean;
-    simulation: {
-        success: boolean;
-        processingTime: number;
-        gatewayResponse: any;
-    };
-}
 
 @Injectable()
 export class PaymentIntegrationService {
@@ -45,7 +17,7 @@ export class PaymentIntegrationService {
 
     async validatePaymentId(paymentId: string): Promise<boolean> {
         console.log('🔄 Validating payment ID via RabbitMQ:', paymentId);
-        const result = await firstValueFrom(
+        const result: boolean = await firstValueFrom(
             this.client.send<boolean>(
                 MICROSERVICES_MESSAGE_COMMANDS.PAYMENT_SERVICE.VALIDATE_PAYMENT_ID,
                 paymentId
